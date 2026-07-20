@@ -30,16 +30,16 @@ export default async function JobDetailPage({
 
   if (!job) notFound();
 
-  const columnMap = job.columnMap as ColumnMap;
+  const columnMap = job.columnMap as unknown as ColumnMap;
 
   const initialRows = job.rows.map((row) => {
-    const rowData = row.rowData as string[];
+    const rowData = row.rowData as unknown as string[];
     return {
       id: row.id,
       rowIndex: row.rowIndex,
       attendeeName: rowData[columnMap.nameCol] ?? `Row ${row.rowIndex}`,
       status: row.status as "pending" | "running" | "success" | "error" | "skipped",
-      result: row.result as {
+      result: row.result as unknown as {
         foundGym: string | null;
         instagram: string | null;
         facebook: string | null;
@@ -48,7 +48,7 @@ export default async function JobDetailPage({
         reason: string;
       } | null,
       error: row.error,
-      toolLog: (row.toolLog as Array<{
+      toolLog: (row.toolLog as unknown as Array<{
         type: "tool_call" | "tool_result";
         tool: string;
         input?: unknown;

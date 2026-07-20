@@ -189,7 +189,7 @@ async function processJob(bullJob: Job<JobPayload>) {
 
   const settings = await getUserSettings(userId);
 
-  const columnMap = job.columnMap as ColumnMap;
+  const columnMap = job.columnMap as unknown as ColumnMap;
 
   // Fetch rows from sheet if none in DB yet
   if (job.rows.length === 0 && !onlyFailed) {
@@ -230,7 +230,7 @@ async function processJob(bullJob: Job<JobPayload>) {
   let errorRows = job.errorRows;
 
   for (const row of rows) {
-    const rowData = row.rowData as string[];
+    const rowData = row.rowData as unknown as string[];
 
     let attempts = 0;
     let success = false;
