@@ -325,7 +325,7 @@ export function startWorker() {
 
   const worker = new Worker(JOB_QUEUE_NAME, processJob, {
     connection: getRedisConnection(),
-    concurrency: 1,
+    concurrency: 3,
   });
 
   worker.on("failed", async (job, err) => {
