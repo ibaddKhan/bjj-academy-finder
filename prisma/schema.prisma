@@ -88,6 +88,7 @@ model Job {
   doneRows    Int       @default(0)
   errorRows   Int       @default(0)
   createdAt   DateTime  @default(now())
+  startedAt   DateTime?
   completedAt DateTime?
 
   user User    @relation(fields: [userId], references: [id], onDelete: Cascade)

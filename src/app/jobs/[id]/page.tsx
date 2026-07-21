@@ -67,6 +67,8 @@ export default async function JobDetailPage({
     errorRows: job.errorRows,
     tabName: job.tabName,
     sheetUrl: job.sheetUrl,
+    startedAt: job.startedAt?.toISOString() ?? null,
+    completedAt: job.completedAt?.toISOString() ?? null,
   };
 
   return (

@@ -44,6 +44,8 @@ interface JobState {
   errorRows: number;
   tabName: string;
   sheetUrl: string;
+  startedAt: string | null;
+  completedAt: string | null;
 }
 
 interface JobProgressViewProps {
@@ -64,7 +66,9 @@ export function JobProgressView({
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [isStopping, setIsStopping] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const connectSSE = useCallback(() => {
     if (eventSourceRef.current) {
@@ -105,6 +109,25 @@ export function JobProgressView({
       eventSourceRef.current?.close();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Live elapsed timer
+  useEffect(() => {
+    if (!job.startedAt) return;
+
+    if (job.completedAt) {
+      // Job finished — show fixed total duration
+      setElapsed(new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime());
+      return;
+    }
+
+    // Job running — tick every second
+    const tick = () => setElapsed(Date.now() - new Date(job.startedAt!).getTime());
+    tick();
+    timerRef.current = setInterval(tick, 1000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [job.startedAt, job.completedAt]);
 
   function handleSSEEvent(event: SSEEvent) {
     switch (event.type) {
@@ -223,18 +246,21 @@ export function JobProgressView({
         break;
 
       case "job_complete":
-        setJob((prev) => ({ ...prev, status: "completed" }));
+        setJob((prev) => ({ ...prev, status: "completed", completedAt: new Date().toISOString() }));
         eventSourceRef.current?.close();
+        if (timerRef.current) clearInterval(timerRef.current);
         break;
 
       case "job_failed":
-        setJob((prev) => ({ ...prev, status: "failed" }));
+        setJob((prev) => ({ ...prev, status: "failed", completedAt: new Date().toISOString() }));
         eventSourceRef.current?.close();
+        if (timerRef.current) clearInterval(timerRef.current);
         break;
 
       case "job_stopped":
-        setJob((prev) => ({ ...prev, status: "paused" }));
+        setJob((prev) => ({ ...prev, status: "paused", completedAt: new Date().toISOString() }));
         eventSourceRef.current?.close();
+        if (timerRef.current) clearInterval(timerRef.current);
         break;
     }
   }
@@ -286,7 +312,11 @@ export function JobProgressView({
     const res = await fetch(`/api/jobs/${jobId}`);
     const data = await res.json();
     if (data.job) {
-      setJob(data.job);
+      setJob({
+        ...data.job,
+        startedAt: data.job.startedAt ?? null,
+        completedAt: data.job.completedAt ?? null,
+      });
       const newRows = new Map<string, RowState>();
       for (const row of data.job.rows ?? []) {
         newRows.set(row.id, {
@@ -297,6 +327,16 @@ export function JobProgressView({
       }
       setRows(newRows);
     }
+  }
+
+  function formatDuration(ms: number) {
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h > 0) return `${h}h ${m}m ${sec}s`;
+    if (m > 0) return `${m}m ${sec}s`;
+    return `${sec}s`;
   }
 
   const rowList = Array.from(rows.values()).sort(
@@ -329,6 +369,11 @@ export function JobProgressView({
               <p className="text-sm text-muted-foreground">
                 Processed {job.doneRows + job.errorRows} / {job.totalRows} rows
                 {isActive && " · Running…"}
+                {job.startedAt && elapsed > 0 && (
+                  <span className="ml-2">
+                    · {isActive ? "⏱ " : "took "}{formatDuration(elapsed)}
+                  </span>
+                )}
               </p>
             </div>
           </div>

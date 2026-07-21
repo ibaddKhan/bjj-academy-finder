@@ -186,7 +186,7 @@ async function processJob(bullJob: Job<JobPayload>) {
 
   if (!job) throw new Error(`Job ${jobId} not found`);
 
-  await db.job.update({ where: { id: jobId }, data: { status: "running" } });
+  await db.job.update({ where: { id: jobId }, data: { status: "running", startedAt: new Date() } });
 
   const settings = await getUserSettings(userId);
 
