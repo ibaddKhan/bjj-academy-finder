@@ -37,7 +37,8 @@ async function getUserSettings(userId: string): Promise<AgentSettings> {
     openrouterKey: map.openrouterKey ?? "",
     openrouterModel: map.openrouterModel ?? "anthropic/claude-haiku-4-5",
     serperKey: map.serperKey ?? "",
-    rapidapiKey: map.rapidapiKey ?? "",
+    instagramKey: map.instagramKey ?? "",
+    facebookKey: map.facebookKey ?? "",
     zenrowsKey: map.zenrowsKey ?? "",
   };
 }

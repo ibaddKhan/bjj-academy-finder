@@ -9,7 +9,8 @@ import { Save, Eye, EyeOff } from "lucide-react";
 
 interface SettingsData {
   serperKey: string;
-  rapidapiKey: string;
+  instagramKey: string;
+  facebookKey: string;
   openrouterKey: string;
   zenrowsKey: string;
   openrouterModel: string;
@@ -17,7 +18,8 @@ interface SettingsData {
 
 const FIELD_LABELS: Record<keyof SettingsData, string> = {
   serperKey: "Serper API Key",
-  rapidapiKey: "RapidAPI Key (Instagram + Facebook)",
+  instagramKey: "RapidAPI Key (Instagram — instagram-looter2)",
+  facebookKey: "RapidAPI Key (Facebook — facebook-scraper3)",
   openrouterKey: "OpenRouter API Key",
   zenrowsKey: "ZenRows API Key",
   openrouterModel: "OpenRouter Model",
@@ -25,7 +27,8 @@ const FIELD_LABELS: Record<keyof SettingsData, string> = {
 
 const FIELD_PLACEHOLDERS: Record<keyof SettingsData, string> = {
   serperKey: "Enter Serper API key...",
-  rapidapiKey: "Enter RapidAPI key...",
+  instagramKey: "Enter RapidAPI key for instagram-looter2...",
+  facebookKey: "Enter RapidAPI key for facebook-scraper3...",
   openrouterKey: "Enter OpenRouter API key...",
   zenrowsKey: "Enter ZenRows API key...",
   openrouterModel: "anthropic/claude-haiku-4-5",
@@ -33,7 +36,8 @@ const FIELD_PLACEHOLDERS: Record<keyof SettingsData, string> = {
 
 const API_KEYS: (keyof SettingsData)[] = [
   "serperKey",
-  "rapidapiKey",
+  "instagramKey",
+  "facebookKey",
   "openrouterKey",
   "zenrowsKey",
 ];
@@ -41,7 +45,8 @@ const API_KEYS: (keyof SettingsData)[] = [
 export function SettingsForm() {
   const [settings, setSettings] = useState<SettingsData>({
     serperKey: "",
-    rapidapiKey: "",
+    instagramKey: "",
+    facebookKey: "",
     openrouterKey: "",
     zenrowsKey: "",
     openrouterModel: "anthropic/claude-haiku-4-5",

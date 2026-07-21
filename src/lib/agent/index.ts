@@ -10,7 +10,8 @@ export interface AgentSettings {
   openrouterKey: string;
   openrouterModel: string;
   serperKey: string;
-  rapidapiKey: string;
+  instagramKey: string;
+  facebookKey: string;
   zenrowsKey: string;
 }
 
@@ -216,13 +217,13 @@ export async function runAgent(
             if (toolArgs.action === "profile") {
               toolResult = await instagramScrape(
                 toolArgs.query,
-                settings.rapidapiKey,
+                settings.instagramKey,
                 remainingSearches
               );
             } else {
               toolResult = await instagramSearch(
                 toolArgs.query,
-                settings.rapidapiKey,
+                settings.instagramKey,
                 remainingSearches
               );
             }
@@ -247,7 +248,7 @@ export async function runAgent(
           case "facebook":
             toolResult = await facebookScrape(
               toolArgs.query,
-              settings.rapidapiKey,
+              settings.facebookKey,
               remainingSearches
             );
             break;

@@ -5,7 +5,8 @@ import { encrypt, decrypt } from "@/lib/encrypt";
 
 const SETTINGS_KEYS = [
   "serperKey",
-  "rapidapiKey",
+  "instagramKey",
+  "facebookKey",
   "openrouterKey",
   "zenrowsKey",
   "openrouterModel",
