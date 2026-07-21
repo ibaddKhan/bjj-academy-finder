@@ -14,7 +14,7 @@ export interface AgentSettings {
   zenrowsKey: string;
 }
 
-// ─── Serper helpers ──────────────────────────────────────────────────────────
+// ─── Serper helpers ───────────────────────────────────────────────────────────
 
 interface SerperData {
   organic?: Array<{ title: string; link: string; snippet: string }>;
@@ -79,102 +79,13 @@ function extractSmoothcompUrl(data: SerperData): string | null {
   return null;
 }
 
-// ─── Main agent ───────────────────────────────────────────────────────────────
+// ─── AI synthesis ─────────────────────────────────────────────────────────────
 
-export async function runAgent(
+async function askAI(
   attendeeName: string,
-  settings: AgentSettings,
-  jobId: string,
-  rowId: string,
-  rowIndex: number
+  researchParts: string[],
+  settings: AgentSettings
 ): Promise<AgentResult> {
-  const toolLog: SSEEvent[] = [];
-
-  function emit(event: Omit<SSEEvent, "timestamp">) {
-    const full: SSEEvent = { ...event, timestamp: Date.now() };
-    toolLog.push(full);
-    emitJobEvent(full);
-  }
-
-  const noop = { count: 99 }; // dummy counter — pipeline controls flow, not budget
-  const researchParts: string[] = [];
-
-  // ── 1. INSTAGRAM ──────────────────────────────────────────────────────────
-  const instaQuery = `${attendeeName} BJJ instagram`;
-  emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "search", input: { query: instaQuery } });
-  try {
-    const instaSearch = await serperRaw(instaQuery, settings.serperKey);
-    const instaText = formatSerper(instaSearch);
-    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: instaText });
-
-    const username = extractInstagramUsername(instaSearch);
-    if (username) {
-      emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "instagram", input: { action: "profile", query: username } });
-      const profile = await instagramScrape(username, settings.instagramKey, noop);
-      emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "instagram", output: profile });
-      researchParts.push(`INSTAGRAM (@${username}):\n${profile}`);
-    } else {
-      researchParts.push(`INSTAGRAM: No profile link found in search.\nSearch results:\n${instaText}`);
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: `Error: ${msg}` });
-    researchParts.push(`INSTAGRAM: Error — ${msg}`);
-  }
-
-  // ── 2. FACEBOOK ──────────────────────────────────────────────────────────
-  const fbQuery = `${attendeeName} BJJ fighter facebook`;
-  emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "search", input: { query: fbQuery } });
-  try {
-    const fbSearch = await serperRaw(fbQuery, settings.serperKey);
-    const fbText = formatSerper(fbSearch);
-    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: fbText });
-
-    const fbUrl = extractFacebookUrl(fbSearch);
-    if (fbUrl) {
-      emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "facebook", input: { query: fbUrl } });
-      const profile = await facebookScrape(fbUrl, settings.facebookKey, noop);
-      emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "facebook", output: profile });
-      researchParts.push(`FACEBOOK (${fbUrl}):\n${profile}`);
-    } else {
-      researchParts.push(`FACEBOOK: No profile link found in search.\nSearch results:\n${fbText}`);
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: `Error: ${msg}` });
-    researchParts.push(`FACEBOOK: Error — ${msg}`);
-  }
-
-  // ── 3. SMOOTHCOMP ────────────────────────────────────────────────────────
-  const scQuery = `${attendeeName} site:smoothcomp.com`;
-  emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "search", input: { query: scQuery } });
-  try {
-    const scSearch = await serperRaw(scQuery, settings.serperKey);
-    const scText = formatSerper(scSearch);
-    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: scText });
-
-    const scUrl = extractSmoothcompUrl(scSearch);
-    if (scUrl) {
-      emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "smoothcomp", input: { action: "profile", query: scUrl } });
-      const profile = await smoothcompProfile(scUrl, settings.zenrowsKey, noop);
-      emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "smoothcomp", output: profile });
-      researchParts.push(`SMOOTHCOMP (${scUrl}):\n${profile}`);
-    } else {
-      researchParts.push(`SMOOTHCOMP: No profile found.\nSearch results:\n${scText}`);
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: `Error: ${msg}` });
-    researchParts.push(`SMOOTHCOMP: Error — ${msg}`);
-  }
-
-  // Save tool log to DB so historical rows show the pipeline steps
-  await db.jobRow.update({
-    where: { id: rowId },
-    data: { toolLog: toolLog as object[] },
-  }).catch(() => { /* non-fatal */ });
-
-  // ── 4. AI SYNTHESIS ──────────────────────────────────────────────────────
   const prompt = `You are a BJJ researcher. Based on the data gathered below, determine the current training gym/academy for: "${attendeeName}"
 
 ${researchParts.join("\n\n---\n\n")}
@@ -187,7 +98,7 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside it):
   "instagram": "instagram username without @ or null",
   "facebook": "facebook profile URL or name or null",
   "smoothcomp": "smoothcomp profile URL or null",
-  "source": "instagram | facebook | smoothcomp | search | null",
+  "source": "instagram | facebook | smoothcomp | null",
   "reason": "one sentence explaining what you found or why you couldn't determine the gym"
 }`;
 
@@ -214,4 +125,118 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside it):
   const data = await response.json();
   const content = data.choices?.[0]?.message?.content ?? "";
   return parseAgentResult(content);
+}
+
+// ─── Main agent (waterfall) ───────────────────────────────────────────────────
+
+export async function runAgent(
+  attendeeName: string,
+  settings: AgentSettings,
+  jobId: string,
+  rowId: string,
+  rowIndex: number
+): Promise<AgentResult> {
+  const toolLog: SSEEvent[] = [];
+
+  function emit(event: Omit<SSEEvent, "timestamp">) {
+    const full: SSEEvent = { ...event, timestamp: Date.now() };
+    toolLog.push(full);
+    emitJobEvent(full);
+  }
+
+  async function saveLog() {
+    await db.jobRow
+      .update({ where: { id: rowId }, data: { toolLog: toolLog as object[] } })
+      .catch(() => {});
+  }
+
+  const noop = { count: 99 };
+  const researchParts: string[] = [];
+
+  // ── 1. INSTAGRAM ─────────────────────────────────────────────────────────
+  const instaQuery = `${attendeeName} BJJ instagram`;
+  emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "search", input: { query: instaQuery } });
+  try {
+    const instaSearch = await serperRaw(instaQuery, settings.serperKey);
+    const instaText = formatSerper(instaSearch);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: instaText });
+
+    const username = extractInstagramUsername(instaSearch);
+    if (username) {
+      emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "instagram", input: { action: "profile", query: username } });
+      const profile = await instagramScrape(username, settings.instagramKey, noop);
+      emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "instagram", output: profile });
+      researchParts.push(`INSTAGRAM (@${username}):\n${profile}`);
+    } else {
+      researchParts.push(`INSTAGRAM: No profile link found.\nSearch results:\n${instaText}`);
+    }
+
+    // Check if gym found — stop waterfall if yes
+    const result = await askAI(attendeeName, researchParts, settings);
+    if (result.foundGym) {
+      await saveLog();
+      return result;
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: `Error: ${msg}` });
+    researchParts.push(`INSTAGRAM: Error — ${msg}`);
+  }
+
+  // ── 2. FACEBOOK ──────────────────────────────────────────────────────────
+  const fbQuery = `${attendeeName} BJJ fighter facebook`;
+  emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "search", input: { query: fbQuery } });
+  try {
+    const fbSearch = await serperRaw(fbQuery, settings.serperKey);
+    const fbText = formatSerper(fbSearch);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: fbText });
+
+    const fbUrl = extractFacebookUrl(fbSearch);
+    if (fbUrl) {
+      emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "facebook", input: { query: fbUrl } });
+      const profile = await facebookScrape(fbUrl, settings.facebookKey, noop);
+      emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "facebook", output: profile });
+      researchParts.push(`FACEBOOK (${fbUrl}):\n${profile}`);
+    } else {
+      researchParts.push(`FACEBOOK: No profile link found.\nSearch results:\n${fbText}`);
+    }
+
+    // Check if gym found — stop waterfall if yes
+    const result = await askAI(attendeeName, researchParts, settings);
+    if (result.foundGym) {
+      await saveLog();
+      return result;
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: `Error: ${msg}` });
+    researchParts.push(`FACEBOOK: Error — ${msg}`);
+  }
+
+  // ── 3. SMOOTHCOMP (last resort) ──────────────────────────────────────────
+  const scQuery = `${attendeeName} site:smoothcomp.com`;
+  emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "search", input: { query: scQuery } });
+  try {
+    const scSearch = await serperRaw(scQuery, settings.serperKey);
+    const scText = formatSerper(scSearch);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: scText });
+
+    const scUrl = extractSmoothcompUrl(scSearch);
+    if (scUrl) {
+      emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "smoothcomp", input: { action: "profile", query: scUrl } });
+      const profile = await smoothcompProfile(scUrl, settings.zenrowsKey, noop);
+      emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "smoothcomp", output: profile });
+      researchParts.push(`SMOOTHCOMP (${scUrl}):\n${profile}`);
+    } else {
+      researchParts.push(`SMOOTHCOMP: No profile found.\nSearch results:\n${scText}`);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: `Error: ${msg}` });
+    researchParts.push(`SMOOTHCOMP: Error — ${msg}`);
+  }
+
+  // Final AI call with everything collected
+  await saveLog();
+  return askAI(attendeeName, researchParts, settings);
 }
