@@ -255,6 +255,22 @@ export function JobProgressView({
     }
   }
 
+  async function handleResume() {
+    setIsRetrying(true);
+    setRetryError(null);
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/resume`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Resume failed");
+      setJob((prev) => ({ ...prev, status: "queued" }));
+      connectSSE();
+    } catch (err) {
+      setRetryError(err instanceof Error ? err.message : "Resume failed");
+    } finally {
+      setIsRetrying(false);
+    }
+  }
+
   async function handleStop() {
     setIsStopping(true);
     try {
@@ -374,7 +390,7 @@ export function JobProgressView({
             <Button
               size="sm"
               variant="outline"
-              onClick={handleRetryAll}
+              onClick={handleResume}
               disabled={isRetrying}
             >
               {isRetrying ? (
