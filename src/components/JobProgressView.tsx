@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RowLogCard } from "@/components/RowLogCard";
-import { CheckCircle2, XCircle, Loader2, RotateCcw, RefreshCcw, Square } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, RotateCcw, RefreshCcw, Square, Trash2 } from "lucide-react";
 import { SSEEvent } from "@/lib/events";
 
 interface AgentResult {
@@ -63,9 +64,11 @@ export function JobProgressView({
   const [rows, setRows] = useState<Map<string, RowState>>(
     new Map(initialRows.map((r) => [r.id, r]))
   );
+  const router = useRouter();
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [isStopping, setIsStopping] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const eventSourceRef = useRef<EventSource | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -329,6 +332,17 @@ export function JobProgressView({
     }
   }
 
+  async function handleDelete() {
+    if (!confirm("Delete this job and all its data? This cannot be undone.")) return;
+    setIsDeleting(true);
+    try {
+      await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+      router.push("/");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   function formatDuration(ms: number) {
     const s = Math.floor(ms / 1000);
     const h = Math.floor(s / 3600);
@@ -421,6 +435,22 @@ export function JobProgressView({
             <Button size="sm" variant="ghost" onClick={handleRefresh}>
               <RefreshCcw className="h-3.5 w-3.5" />
             </Button>
+
+            {!isActive && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            )}
           </div>
         </div>
 
