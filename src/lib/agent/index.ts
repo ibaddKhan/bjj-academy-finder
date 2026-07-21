@@ -1,10 +1,9 @@
-import { SYSTEM_PROMPT } from "./prompt";
 import { AgentResult, parseAgentResult } from "./schema";
-import { serperSearch } from "./tools/serper";
-import { instagramScrape, instagramSearch } from "./tools/instagram";
+import { instagramScrape } from "./tools/instagram";
 import { facebookScrape } from "./tools/facebook";
-import { smoothcompSearch, smoothcompProfile } from "./tools/smoothcomp";
+import { smoothcompProfile } from "./tools/smoothcomp";
 import { emitJobEvent, SSEEvent } from "@/lib/events";
+import { db } from "@/lib/db";
 
 export interface AgentSettings {
   openrouterKey: string;
@@ -15,103 +14,72 @@ export interface AgentSettings {
   zenrowsKey: string;
 }
 
-interface Message {
-  role: "system" | "user" | "assistant" | "tool";
-  content: string | null;
-  tool_calls?: ToolCall[];
-  tool_call_id?: string;
-  name?: string;
+// ─── Serper helpers ──────────────────────────────────────────────────────────
+
+interface SerperData {
+  organic?: Array<{ title: string; link: string; snippet: string }>;
+  answerBox?: { answer?: string; snippet?: string };
 }
 
-interface ToolCall {
-  id: string;
-  type: "function";
-  function: {
-    name: string;
-    arguments: string;
-  };
+async function serperRaw(query: string, apiKey: string): Promise<SerperData> {
+  const response = await fetch("https://google.serper.dev/search", {
+    method: "POST",
+    headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ q: query, num: 5 }),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Serper ${response.status}: ${text.slice(0, 200)}`);
+  }
+  return response.json();
 }
 
-const OPENROUTER_TOOLS = [
-  {
-    type: "function",
-    function: {
-      name: "search",
-      description: "Search the web for information about a BJJ competitor",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "The search query",
-          },
-        },
-        required: ["query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "instagram",
-      description: "Search Instagram for a user profile or scrape a specific profile",
-      parameters: {
-        type: "object",
-        properties: {
-          action: {
-            type: "string",
-            enum: ["search", "profile"],
-            description: "Whether to search for users or scrape a specific profile",
-          },
-          query: {
-            type: "string",
-            description: "Search query (for search) or username (for profile, without @)",
-          },
-        },
-        required: ["action", "query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "smoothcomp",
-      description: "Search Smoothcomp competition database for a BJJ athlete",
-      parameters: {
-        type: "object",
-        properties: {
-          action: {
-            type: "string",
-            enum: ["search", "profile"],
-            description: "Whether to search for athletes or scrape a specific profile URL",
-          },
-          query: {
-            type: "string",
-            description: "Athlete name (for search) or profile URL (for profile)",
-          },
-        },
-        required: ["action", "query"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "facebook",
-      description: "Search Facebook for a BJJ competitor's profile",
-      parameters: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "Name or search query for the competitor",
-          },
-        },
-        required: ["query"],
-      },
-    },
-  },
-];
+function formatSerper(data: SerperData): string {
+  let out = "";
+  if (data.answerBox?.snippet || data.answerBox?.answer) {
+    out += `Answer: ${data.answerBox.snippet ?? data.answerBox.answer}\n\n`;
+  }
+  for (const r of (data.organic ?? []).slice(0, 5)) {
+    out += `${r.title}\n${r.link}\n${r.snippet}\n\n`;
+  }
+  return out.trim() || "No results found.";
+}
+
+// ─── Link extractors ──────────────────────────────────────────────────────────
+
+const INSTA_SKIP = new Set(["p", "reels", "reel", "explore", "stories", "tv", "accounts"]);
+
+function extractInstagramUsername(data: SerperData): string | null {
+  for (const r of data.organic ?? []) {
+    const m = r.link.match(/instagram\.com\/([A-Za-z0-9._]+)\/?(?:[?#]|$)/);
+    if (m && !INSTA_SKIP.has(m[1])) return m[1];
+  }
+  return null;
+}
+
+function extractFacebookUrl(data: SerperData): string | null {
+  for (const r of data.organic ?? []) {
+    if (
+      r.link.includes("facebook.com/") &&
+      !r.link.includes("/posts/") &&
+      !r.link.includes("/photos/") &&
+      !r.link.includes("/videos/") &&
+      !r.link.includes("/events/")
+    ) {
+      return r.link;
+    }
+  }
+  return null;
+}
+
+function extractSmoothcompUrl(data: SerperData): string | null {
+  for (const r of data.organic ?? []) {
+    if (r.link.includes("smoothcomp.com/en/athlete/")) return r.link;
+  }
+  return null;
+}
+
+// ─── Main agent ───────────────────────────────────────────────────────────────
 
 export async function runAgent(
   attendeeName: string,
@@ -120,208 +88,130 @@ export async function runAgent(
   rowId: string,
   rowIndex: number
 ): Promise<AgentResult> {
-  const MAX_ITERATIONS = 12;
-  const remainingSearches = { count: MAX_ITERATIONS };
-
-  const messages: Message[] = [
-    { role: "system", content: SYSTEM_PROMPT },
-    {
-      role: "user",
-      content: `Find the current BJJ training academy/gym for: ${attendeeName}`,
-    },
-  ];
-
   const toolLog: SSEEvent[] = [];
 
   function emit(event: Omit<SSEEvent, "timestamp">) {
-    const fullEvent: SSEEvent = { ...event, timestamp: Date.now() };
-    toolLog.push(fullEvent);
-    emitJobEvent(fullEvent);
+    const full: SSEEvent = { ...event, timestamp: Date.now() };
+    toolLog.push(full);
+    emitJobEvent(full);
   }
 
-  for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${settings.openrouterKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": process.env.NEXTAUTH_URL ?? "http://localhost:3000",
-          "X-Title": "BJJ Academy Finder",
-        },
-        body: JSON.stringify({
-          model: settings.openrouterModel || "anthropic/claude-haiku-4-5",
-          messages,
-          tools: OPENROUTER_TOOLS,
-          tool_choice: "auto",
-          max_tokens: 1024,
-        }),
-      }
-    );
+  const noop = { count: 99 }; // dummy counter — pipeline controls flow, not budget
+  const researchParts: string[] = [];
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`OpenRouter API error ${response.status}: ${text}`);
+  // ── 1. INSTAGRAM ──────────────────────────────────────────────────────────
+  const instaQuery = `${attendeeName} BJJ instagram`;
+  emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "search", input: { query: instaQuery } });
+  try {
+    const instaSearch = await serperRaw(instaQuery, settings.serperKey);
+    const instaText = formatSerper(instaSearch);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: instaText });
+
+    const username = extractInstagramUsername(instaSearch);
+    if (username) {
+      emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "instagram", input: { action: "profile", query: username } });
+      const profile = await instagramScrape(username, settings.instagramKey, noop);
+      emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "instagram", output: profile });
+      researchParts.push(`INSTAGRAM (@${username}):\n${profile}`);
+    } else {
+      researchParts.push(`INSTAGRAM: No profile link found in search.\nSearch results:\n${instaText}`);
     }
-
-    const data = await response.json();
-    const choice = data.choices?.[0];
-
-    if (!choice) {
-      throw new Error("No response from OpenRouter");
-    }
-
-    const assistantMessage = choice.message;
-    messages.push(assistantMessage);
-
-    // No tool calls — we have a final answer
-    if (!assistantMessage.tool_calls || assistantMessage.tool_calls.length === 0) {
-      const content = assistantMessage.content ?? "";
-      return parseAgentResult(content);
-    }
-
-    // Process each tool call
-    for (const toolCall of assistantMessage.tool_calls) {
-      const toolName = toolCall.function.name;
-      let toolArgs: Record<string, string> = {};
-      try {
-        toolArgs = JSON.parse(toolCall.function.arguments);
-      } catch {
-        toolArgs = {};
-      }
-
-      emit({
-        type: "tool_call",
-        jobId,
-        rowId,
-        rowIndex,
-        attendeeName,
-        tool: toolName,
-        input: toolArgs,
-      });
-
-      let toolResult = "";
-
-      try {
-        switch (toolName) {
-          case "search":
-            toolResult = await serperSearch(
-              toolArgs.query,
-              settings.serperKey,
-              remainingSearches
-            );
-            break;
-
-          case "instagram":
-            if (toolArgs.action === "profile") {
-              toolResult = await instagramScrape(
-                toolArgs.query,
-                settings.instagramKey,
-                remainingSearches
-              );
-            } else {
-              toolResult = await instagramSearch(
-                toolArgs.query,
-                settings.instagramKey,
-                remainingSearches
-              );
-            }
-            break;
-
-          case "smoothcomp":
-            if (toolArgs.action === "profile") {
-              toolResult = await smoothcompProfile(
-                toolArgs.query,
-                settings.zenrowsKey,
-                remainingSearches
-              );
-            } else {
-              toolResult = await smoothcompSearch(
-                toolArgs.query,
-                settings.zenrowsKey,
-                remainingSearches
-              );
-            }
-            break;
-
-          case "facebook":
-            toolResult = await facebookScrape(
-              toolArgs.query,
-              settings.facebookKey,
-              remainingSearches
-            );
-            break;
-
-          default:
-            toolResult = `Unknown tool: ${toolName}`;
-        }
-      } catch (err) {
-        toolResult = `Tool execution error: ${err instanceof Error ? err.message : String(err)}\nRemaining searches: ${remainingSearches.count}`;
-      }
-
-      emit({
-        type: "tool_result",
-        jobId,
-        rowId,
-        rowIndex,
-        attendeeName,
-        tool: toolName,
-        output: toolResult,
-      });
-
-      messages.push({
-        role: "tool",
-        content: toolResult,
-        tool_call_id: toolCall.id,
-        name: toolName,
-      });
-    }
-
-    // Budget exhausted
-    if (remainingSearches.count <= 0) {
-      break;
-    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: `Error: ${msg}` });
+    researchParts.push(`INSTAGRAM: Error — ${msg}`);
   }
 
-  // Force final answer after max iterations
-  const finalResponse = await fetch(
-    "https://openrouter.ai/api/v1/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${settings.openrouterKey}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": process.env.NEXTAUTH_URL ?? "http://localhost:3000",
-        "X-Title": "BJJ Academy Finder",
-      },
-      body: JSON.stringify({
-        model: settings.openrouterModel || "anthropic/claude-haiku-4-5",
-        messages: [
-          ...messages,
-          {
-            role: "user",
-            content:
-              "Based on your research so far, please provide your final answer as a JSON object with fields: foundGym, instagram, facebook, smoothcomp, source, reason.",
-          },
-        ],
-        max_tokens: 512,
-      }),
-    }
-  );
+  // ── 2. FACEBOOK ──────────────────────────────────────────────────────────
+  const fbQuery = `${attendeeName} BJJ fighter facebook`;
+  emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "search", input: { query: fbQuery } });
+  try {
+    const fbSearch = await serperRaw(fbQuery, settings.serperKey);
+    const fbText = formatSerper(fbSearch);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: fbText });
 
-  if (!finalResponse.ok) {
-    return {
-      foundGym: null,
-      instagram: null,
-      facebook: null,
-      smoothcomp: null,
-      source: null,
-      reason: "Max iterations reached, could not get final answer",
-    };
+    const fbUrl = extractFacebookUrl(fbSearch);
+    if (fbUrl) {
+      emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "facebook", input: { query: fbUrl } });
+      const profile = await facebookScrape(fbUrl, settings.facebookKey, noop);
+      emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "facebook", output: profile });
+      researchParts.push(`FACEBOOK (${fbUrl}):\n${profile}`);
+    } else {
+      researchParts.push(`FACEBOOK: No profile link found in search.\nSearch results:\n${fbText}`);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: `Error: ${msg}` });
+    researchParts.push(`FACEBOOK: Error — ${msg}`);
   }
 
-  const finalData = await finalResponse.json();
-  const finalContent = finalData.choices?.[0]?.message?.content ?? "";
-  return parseAgentResult(finalContent);
+  // ── 3. SMOOTHCOMP ────────────────────────────────────────────────────────
+  const scQuery = `${attendeeName} site:smoothcomp.com`;
+  emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "search", input: { query: scQuery } });
+  try {
+    const scSearch = await serperRaw(scQuery, settings.serperKey);
+    const scText = formatSerper(scSearch);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: scText });
+
+    const scUrl = extractSmoothcompUrl(scSearch);
+    if (scUrl) {
+      emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "smoothcomp", input: { action: "profile", query: scUrl } });
+      const profile = await smoothcompProfile(scUrl, settings.zenrowsKey, noop);
+      emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "smoothcomp", output: profile });
+      researchParts.push(`SMOOTHCOMP (${scUrl}):\n${profile}`);
+    } else {
+      researchParts.push(`SMOOTHCOMP: No profile found.\nSearch results:\n${scText}`);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    emit({ type: "tool_result", jobId, rowId, rowIndex, attendeeName, tool: "search", output: `Error: ${msg}` });
+    researchParts.push(`SMOOTHCOMP: Error — ${msg}`);
+  }
+
+  // Save tool log to DB so historical rows show the pipeline steps
+  await db.jobRow.update({
+    where: { id: rowId },
+    data: { toolLog: toolLog as object[] },
+  }).catch(() => { /* non-fatal */ });
+
+  // ── 4. AI SYNTHESIS ──────────────────────────────────────────────────────
+  const prompt = `You are a BJJ researcher. Based on the data gathered below, determine the current training gym/academy for: "${attendeeName}"
+
+${researchParts.join("\n\n---\n\n")}
+
+Look for gym/academy/team names in bios, post captions, work history, and competition records.
+
+Respond with ONLY a valid JSON object (no markdown, no explanation outside it):
+{
+  "foundGym": "full gym name or null",
+  "instagram": "instagram username without @ or null",
+  "facebook": "facebook profile URL or name or null",
+  "smoothcomp": "smoothcomp profile URL or null",
+  "source": "instagram | facebook | smoothcomp | search | null",
+  "reason": "one sentence explaining what you found or why you couldn't determine the gym"
+}`;
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${settings.openrouterKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": process.env.NEXTAUTH_URL ?? "http://localhost:3000",
+      "X-Title": "BJJ Academy Finder",
+    },
+    body: JSON.stringify({
+      model: settings.openrouterModel || "anthropic/claude-haiku-4-5",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 512,
+    }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`OpenRouter API error ${response.status}: ${text}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content ?? "";
+  return parseAgentResult(content);
 }
