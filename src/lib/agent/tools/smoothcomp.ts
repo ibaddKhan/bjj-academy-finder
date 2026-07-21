@@ -30,9 +30,9 @@ export async function smoothcompSearch(
     let result = "Smoothcomp search results:\n";
 
     // Look for athlete cards/links
-    const athleteMatches = html.matchAll(
+    const athleteMatches = Array.from(html.matchAll(
       /href="(\/en\/athlete\/[^"]+)"[^>]*>([^<]+)<\/a>/g
-    );
+    ));
     const athletes: string[] = [];
     for (const match of athleteMatches) {
       athletes.push(`- https://smoothcomp.com${match[1]}: ${match[2].trim()}`);
@@ -42,7 +42,7 @@ export async function smoothcompSearch(
       result += athletes.slice(0, 5).join("\n");
     } else {
       // Look for any gym/academy mentions in the page
-      const gymMatches = html.matchAll(/Academy[:\s]+([^<\n]+)/gi);
+      const gymMatches = Array.from(html.matchAll(/Academy[:\s]+([^<\n]+)/gi));
       const gyms: string[] = [];
       for (const match of gymMatches) {
         gyms.push(match[1].trim());
@@ -99,7 +99,7 @@ export async function smoothcompProfile(
     }
 
     // Look for any competition data
-    const compMatches = html.matchAll(/(\d{4})[^"]*(?:World|Pan|Euro|IBJJF)[^<]*/gi);
+    const compMatches = Array.from(html.matchAll(/(\d{4})[^"]*(?:World|Pan|Euro|IBJJF)[^<]*/gi));
     const comps: string[] = [];
     for (const match of compMatches) {
       comps.push(match[0].trim().slice(0, 100));

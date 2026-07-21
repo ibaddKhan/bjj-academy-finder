@@ -176,7 +176,7 @@ export function RowLogCard({
                       <span className="font-medium text-primary">
                         {pair.call.tool}
                       </span>
-                      {pair.call.input && (
+                      {!!pair.call.input && (
                         <span className="text-muted-foreground ml-1">
                           {typeof pair.call.input === "object"
                             ? Object.values(pair.call.input as Record<string, string>)
