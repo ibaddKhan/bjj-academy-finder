@@ -90,15 +90,23 @@ async function askAI(
 
 ${researchParts.join("\n\n---\n\n")}
 
-Look for gym/academy/team names in bios, post captions, work history, and competition records.
+## Verification Rules (STRICT — follow exactly)
 
-IMPORTANT rules for the JSON fields:
-- "foundGym": the NAME of the gym/academy where the person trains (not a URL) — or null
-- "instagram": the FULL Instagram profile URL of the PERSON (e.g. https://www.instagram.com/username) — NOT the gym's profile — or null
-- "facebook": the FULL Facebook profile URL of the PERSON — NOT the gym's page — or null
-- "smoothcomp": the FULL Smoothcomp profile URL of the PERSON — or null
+Before accepting ANY profile or gym, you MUST verify it belongs to "${attendeeName}":
+
+1. **Name match**: The profile's full name must match or be a clear variation of "${attendeeName}" (nicknames, abbreviations, middle names are OK — but a completely different person is NOT).
+2. **BJJ context**: The profile must show BJJ/jiu-jitsu/grappling/MMA content (bio, posts, competition records, team tags, etc.).
+3. **If uncertain**: Return null for that field. Do NOT guess. A missing field is better than a wrong one.
+4. **Common-name caution**: If the name is common (e.g. "John Smith") and the profile shows no BJJ connection, reject it and return null.
+5. **Gym name**: Only return a gym name if the profile content explicitly mentions it as the person's current team/academy. Do NOT infer from a gym's own page.
+
+## Output Field Rules
+- "foundGym": the NAME of the gym/academy (not a URL) — only if confirmed current — or null
+- "instagram": the FULL Instagram profile URL of THIS PERSON (e.g. https://www.instagram.com/username) — NOT a gym page — null if not verified
+- "facebook": the FULL Facebook profile URL of THIS PERSON — NOT a gym page — null if not verified
+- "smoothcomp": the FULL Smoothcomp profile URL of THIS PERSON — null if not verified
 - "source": which source confirmed the gym ("instagram" | "facebook" | "smoothcomp" | null)
-- "reason": one sentence explaining what you found or why you couldn't determine the gym
+- "reason": one sentence — what you verified, or why you couldn't confirm
 
 Respond with ONLY a valid JSON object (no markdown, no explanation outside it):
 {
