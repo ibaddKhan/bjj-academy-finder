@@ -102,6 +102,9 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside it):
   "reason": "one sentence explaining what you found or why you couldn't determine the gym"
 }`;
 
+  const modelToUse = settings.openrouterModel || "anthropic/claude-haiku-4-5";
+  console.log(`[agent] using model: ${modelToUse}`);
+
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -111,7 +114,7 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside it):
       "X-Title": "BJJ Academy Finder",
     },
     body: JSON.stringify({
-      model: settings.openrouterModel || "anthropic/claude-haiku-4-5",
+      model: modelToUse,
       messages: [{ role: "user", content: prompt }],
       max_tokens: 512,
     }),
