@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 async function getAuthClient(userId: string) {
   const account = await db.account.findFirst({
     where: { userId, provider: "google" },
-    select: { access_token: true, refresh_token: true, expires_at: true },
+    select: { access_token: true, refresh_token: true, expires_at: true, providerAccountId: true },
   });
 
   if (!account?.access_token) {
@@ -26,7 +26,7 @@ async function getAuthClient(userId: string) {
   oauth2Client.on("tokens", async (tokens) => {
     if (tokens.access_token) {
       await db.account.update({
-        where: { provider_providerAccountId: { provider: "google", providerAccountId: userId } },
+        where: { provider_providerAccountId: { provider: "google", providerAccountId: account.providerAccountId } },
         data: {
           access_token: tokens.access_token,
           expires_at: tokens.expiry_date ? Math.floor(tokens.expiry_date / 1000) : undefined,
