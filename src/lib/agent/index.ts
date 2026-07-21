@@ -92,14 +92,22 @@ ${researchParts.join("\n\n---\n\n")}
 
 Look for gym/academy/team names in bios, post captions, work history, and competition records.
 
+IMPORTANT rules for the JSON fields:
+- "foundGym": the NAME of the gym/academy where the person trains (not a URL) — or null
+- "instagram": the FULL Instagram profile URL of the PERSON (e.g. https://www.instagram.com/username) — NOT the gym's profile — or null
+- "facebook": the FULL Facebook profile URL of the PERSON — NOT the gym's page — or null
+- "smoothcomp": the FULL Smoothcomp profile URL of the PERSON — or null
+- "source": which source confirmed the gym ("instagram" | "facebook" | "smoothcomp" | null)
+- "reason": one sentence explaining what you found or why you couldn't determine the gym
+
 Respond with ONLY a valid JSON object (no markdown, no explanation outside it):
 {
-  "foundGym": "full gym name or null",
-  "instagram": "instagram username without @ or null",
-  "facebook": "facebook profile URL or name or null",
-  "smoothcomp": "smoothcomp profile URL or null",
+  "foundGym": "gym/academy name or null",
+  "instagram": "https://www.instagram.com/username or null",
+  "facebook": "https://www.facebook.com/profile or null",
+  "smoothcomp": "https://smoothcomp.com/en/athlete/... or null",
   "source": "instagram | facebook | smoothcomp | null",
-  "reason": "one sentence explaining what you found or why you couldn't determine the gym"
+  "reason": "one sentence explanation"
 }`;
 
   const modelToUse = settings.openrouterModel || "anthropic/claude-haiku-4-5";

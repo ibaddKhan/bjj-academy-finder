@@ -16,15 +16,15 @@ export const OUTPUT_SCHEMA = {
     },
     instagram: {
       type: ["string", "null"],
-      description: "Instagram handle (without @)",
+      description: "Full Instagram profile URL of the person (e.g. https://www.instagram.com/username)",
     },
     facebook: {
       type: ["string", "null"],
-      description: "Facebook profile URL or name",
+      description: "Full Facebook profile URL of the person",
     },
     smoothcomp: {
       type: ["string", "null"],
-      description: "Smoothcomp profile URL",
+      description: "Full Smoothcomp profile URL of the person",
     },
     source: {
       type: ["string", "null"],

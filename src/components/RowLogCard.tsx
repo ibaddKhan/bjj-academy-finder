@@ -228,7 +228,7 @@ export function RowLogCard({
               {result.instagram && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Instagram: </span>
-                  @{result.instagram}
+                  {result.instagram}
                 </p>
               )}
               {result.facebook && (
