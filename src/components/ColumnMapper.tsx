@@ -36,6 +36,7 @@ interface ColumnMapperProps {
   tabName: string;
   onLaunch: (columnMap: ColumnMap) => void;
   isLaunching: boolean;
+  defaultValues?: Partial<ColumnMap>;
 }
 
 const SKIP_VALUE = "__skip__";
@@ -54,6 +55,7 @@ export function ColumnMapper({
   tabName,
   onLaunch,
   isLaunching,
+  defaultValues,
 }: ColumnMapperProps) {
   const [headers, setHeaders] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,13 +79,30 @@ export function ColumnMapper({
       .then((data) => {
         if (data.headers) {
           setHeaders(data.headers);
+          // Restore saved column mapping after headers load
+          if (defaultValues) {
+            if (defaultValues.nameCol !== undefined) setNameColIdx(String(defaultValues.nameCol));
+            if (defaultValues.filterCol !== undefined) setFilterColIdx(String(defaultValues.filterCol));
+            if (defaultValues.filterValue !== undefined) setFilterValue(defaultValues.filterValue);
+            if (defaultValues.doneCol !== undefined) setDoneColIdx(String(defaultValues.doneCol));
+            if (defaultValues.doneValue !== undefined) setDoneValue(defaultValues.doneValue);
+            if (defaultValues.rowOffset !== undefined) setRowOffset(String(defaultValues.rowOffset));
+            if (defaultValues.rowLimit !== undefined) setRowLimit(String(defaultValues.rowLimit));
+            if (defaultValues.outputCols) {
+              const restored: Record<string, string> = {};
+              for (const [k, v] of Object.entries(defaultValues.outputCols)) {
+                if (v !== undefined) restored[k] = String(v);
+              }
+              setOutputCols(restored);
+            }
+          }
         } else {
           setError(data.error ?? "Failed to load headers");
         }
       })
       .catch(() => setError("Network error"))
       .finally(() => setLoading(false));
-  }, [sheetId, tabName]);
+  }, [sheetId, tabName]); // intentionally omit defaultValues to only apply on first load
 
   function handleLaunch() {
     if (!nameColIdx || !filterColIdx || !doneColIdx) return;

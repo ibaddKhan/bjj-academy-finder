@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { SheetConnector } from "@/components/SheetConnector";
 import { ColumnMapper } from "@/components/ColumnMapper";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
+
+const STORAGE_KEY = "bjj_last_job_config";
 
 interface SheetInfo {
   sheetUrl: string;
@@ -21,6 +23,8 @@ interface ColumnMap {
   filterValue: string;
   doneCol: number;
   doneValue: string;
+  rowOffset: number;
+  rowLimit: number;
   outputCols: {
     foundGym?: number;
     instagram?: number;
@@ -31,6 +35,12 @@ interface ColumnMap {
   };
 }
 
+interface SavedConfig {
+  sheetUrl: string;
+  tabName: string;
+  columnMap: ColumnMap;
+}
+
 const STEPS = ["Connect Sheet", "Map Columns", "Launch"];
 
 export default function NewJobPage() {
@@ -39,6 +49,17 @@ export default function NewJobPage() {
   const [sheetInfo, setSheetInfo] = useState<SheetInfo | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
+  const [savedConfig, setSavedConfig] = useState<SavedConfig | null>(null);
+
+  // Load saved config from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) setSavedConfig(JSON.parse(raw));
+    } catch {
+      // ignore corrupt storage
+    }
+  }, []);
 
   function handleConnected(info: SheetInfo) {
     setSheetInfo(info);
@@ -59,6 +80,18 @@ export default function NewJobPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create job");
+
+      // Persist config for next time
+      const config: SavedConfig = {
+        sheetUrl: sheetInfo.sheetUrl,
+        tabName: sheetInfo.tabName,
+        columnMap,
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      } catch {
+        // ignore storage errors
+      }
 
       router.push(`/jobs/${data.job.id}`);
     } catch (err) {
@@ -118,7 +151,11 @@ export default function NewJobPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <SheetConnector onConnected={handleConnected} />
+              <SheetConnector
+                onConnected={handleConnected}
+                defaultUrl={savedConfig?.sheetUrl}
+                defaultTabName={savedConfig?.tabName}
+              />
             </CardContent>
           </Card>
         )}
@@ -139,6 +176,11 @@ export default function NewJobPage() {
                 tabName={sheetInfo.tabName}
                 onLaunch={handleLaunch}
                 isLaunching={isLaunching}
+                defaultValues={
+                  savedConfig?.tabName === sheetInfo.tabName
+                    ? savedConfig.columnMap
+                    : undefined
+                }
               />
               {launchError && (
                 <p className="mt-3 text-sm text-destructive">{launchError}</p>

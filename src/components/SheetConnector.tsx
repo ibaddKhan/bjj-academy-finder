@@ -25,10 +25,12 @@ interface SheetConnectorProps {
     tabId: string;
     tabName: string;
   }) => void;
+  defaultUrl?: string;
+  defaultTabName?: string;
 }
 
-export function SheetConnector({ onConnected }: SheetConnectorProps) {
-  const [sheetUrl, setSheetUrl] = useState("");
+export function SheetConnector({ onConnected, defaultUrl = "", defaultTabName = "" }: SheetConnectorProps) {
+  const [sheetUrl, setSheetUrl] = useState(defaultUrl);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -53,7 +55,13 @@ export function SheetConnector({ onConnected }: SheetConnectorProps) {
       setTabs(data.tabs);
       setSheetId(data.sheetId);
 
-      if (data.tabs.length === 1) {
+      // Auto-select: prefer saved tab name, fall back to single-tab sheets
+      const savedTab = defaultTabName
+        ? data.tabs.find((t: Tab) => t.title === defaultTabName)
+        : null;
+      if (savedTab) {
+        setSelectedTab(savedTab);
+      } else if (data.tabs.length === 1) {
         setSelectedTab(data.tabs[0]);
       }
     } catch (err) {
