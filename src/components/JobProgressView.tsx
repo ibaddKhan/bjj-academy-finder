@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RowLogCard } from "@/components/RowLogCard";
-import { CheckCircle2, XCircle, Loader2, RotateCcw, RefreshCcw } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, RotateCcw, RefreshCcw, Square } from "lucide-react";
 import { SSEEvent } from "@/lib/events";
 
 interface AgentResult {
@@ -63,6 +63,7 @@ export function JobProgressView({
   );
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [isStopping, setIsStopping] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const connectSSE = useCallback(() => {
@@ -83,11 +84,12 @@ export function JobProgressView({
     };
 
     es.onerror = () => {
-      // Reconnect after 3 seconds if job isn't complete
+      // Reconnect after 3 seconds if job isn't complete/stopped
       setTimeout(() => {
         if (
           job.status !== "completed" &&
-          job.status !== "failed"
+          job.status !== "failed" &&
+          job.status !== "paused"
         ) {
           connectSSE();
         }
@@ -229,6 +231,11 @@ export function JobProgressView({
         setJob((prev) => ({ ...prev, status: "failed" }));
         eventSourceRef.current?.close();
         break;
+
+      case "job_stopped":
+        setJob((prev) => ({ ...prev, status: "paused" }));
+        eventSourceRef.current?.close();
+        break;
     }
   }
 
@@ -245,6 +252,17 @@ export function JobProgressView({
       setRetryError(err instanceof Error ? err.message : "Retry failed");
     } finally {
       setIsRetrying(false);
+    }
+  }
+
+  async function handleStop() {
+    setIsStopping(true);
+    try {
+      await fetch(`/api/jobs/${jobId}/stop`, { method: "POST" });
+      setJob((prev) => ({ ...prev, status: "paused" }));
+      eventSourceRef.current?.close();
+    } finally {
+      setIsStopping(false);
     }
   }
 
@@ -323,6 +341,22 @@ export function JobProgressView({
               {job.status}
             </Badge>
 
+            {isActive && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleStop}
+                disabled={isStopping}
+              >
+                {isStopping ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                ) : (
+                  <Square className="h-3.5 w-3.5 mr-1" />
+                )}
+                Stop
+              </Button>
+            )}
+
             <Button size="sm" variant="ghost" onClick={handleRefresh}>
               <RefreshCcw className="h-3.5 w-3.5" />
             </Button>
@@ -330,6 +364,28 @@ export function JobProgressView({
         </div>
 
         <Progress value={progressPct} className="h-2" />
+
+        {/* Resume stopped job */}
+        {job.status === "paused" && (
+          <div className="flex items-center gap-3 pt-1">
+            <p className="text-sm text-muted-foreground">
+              Job stopped. Unprocessed rows are still pending.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRetryAll}
+              disabled={isRetrying}
+            >
+              {isRetrying ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <RotateCcw className="h-4 w-4 mr-2" />
+              )}
+              Resume
+            </Button>
+          </div>
+        )}
 
         {/* Retry all failed */}
         {errorRows.length > 0 && job.status === "completed" && (

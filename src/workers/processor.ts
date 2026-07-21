@@ -231,6 +231,21 @@ async function processJob(bullJob: Job<JobPayload>) {
   let errorRows = job.errorRows;
 
   for (const row of rows) {
+    // Check if job was stopped between rows
+    const currentStatus = await db.job.findUnique({
+      where: { id: jobId },
+      select: { status: true },
+    });
+    if (currentStatus?.status === "paused") {
+      // Reset any running rows back to pending so they can be resumed
+      await db.jobRow.updateMany({
+        where: { jobId, status: "running" },
+        data: { status: "pending" },
+      });
+      emitJobEvent({ type: "job_stopped", jobId, timestamp: Date.now() });
+      return;
+    }
+
     const rowData = row.rowData as unknown as string[];
 
     let attempts = 0;

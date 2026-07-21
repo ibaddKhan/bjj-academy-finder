@@ -21,7 +21,8 @@ export type SSEEventType =
   | "row_error"
   | "job_progress"
   | "job_complete"
-  | "job_failed";
+  | "job_failed"
+  | "job_stopped";
 
 export interface SSEEvent {
   type: SSEEventType;
