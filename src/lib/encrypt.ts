@@ -5,7 +5,9 @@ const KEY_HEX = process.env.ENCRYPTION_KEY ?? "";
 
 function getKey(): Buffer {
   if (!KEY_HEX || KEY_HEX.length < 64) {
-    // Fallback for dev — in production, always set ENCRYPTION_KEY
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("ENCRYPTION_KEY must be set to a 64-character hex string in production");
+    }
     return Buffer.alloc(32, "dev-key-not-for-production-use!");
   }
   return Buffer.from(KEY_HEX.slice(0, 64), "hex");

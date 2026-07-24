@@ -49,62 +49,33 @@ export async function upsertEnrichment(
 ): Promise<void> {
   const pool = getPool();
 
-  // Check if exists
-  const existing = await pool.query(
-    "SELECT id FROM event_enrichments WHERE name_id = $1 LIMIT 1",
-    [gymName]
+  await pool.query(
+    `INSERT INTO event_enrichments
+      (name_id, name, email, phone, address, city, state, country,
+       gym_academy_url, facebook, instagram, owner_person_in_charge,
+       source, owner_instagram, coaches)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+    ON CONFLICT (name_id) DO UPDATE SET
+      name = $2, email = $3, phone = $4, address = $5, city = $6,
+      state = $7, country = $8, gym_academy_url = $9, facebook = $10,
+      instagram = $11, owner_person_in_charge = $12, source = $13,
+      owner_instagram = $14, coaches = $15`,
+    [
+      gymName,
+      payload.name ?? null,
+      payload.email ?? null,
+      payload.phone ?? null,
+      payload.address ?? null,
+      payload.city ?? null,
+      payload.state ?? null,
+      payload.country ?? null,
+      payload.gym_academy_url ?? null,
+      payload.facebook ?? null,
+      payload.instagram ?? null,
+      payload.owner_person_in_charge ?? null,
+      payload.source ?? null,
+      payload.owner_instagram ?? null,
+      payload.coaches ?? null,
+    ]
   );
-
-  if (existing.rowCount && existing.rowCount > 0) {
-    await pool.query(
-      `UPDATE event_enrichments SET
-        name = $1, email = $2, phone = $3, address = $4, city = $5,
-        state = $6, country = $7, gym_academy_url = $8, facebook = $9,
-        instagram = $10, owner_person_in_charge = $11, source = $12,
-        owner_instagram = $13, coaches = $14
-      WHERE name_id = $15`,
-      [
-        payload.name ?? null,
-        payload.email ?? null,
-        payload.phone ?? null,
-        payload.address ?? null,
-        payload.city ?? null,
-        payload.state ?? null,
-        payload.country ?? null,
-        payload.gym_academy_url ?? null,
-        payload.facebook ?? null,
-        payload.instagram ?? null,
-        payload.owner_person_in_charge ?? null,
-        payload.source ?? null,
-        payload.owner_instagram ?? null,
-        payload.coaches ?? null,
-        gymName,
-      ]
-    );
-  } else {
-    await pool.query(
-      `INSERT INTO event_enrichments
-        (name_id, name, email, phone, address, city, state, country,
-         gym_academy_url, facebook, instagram, owner_person_in_charge,
-         source, owner_instagram, coaches)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-      [
-        gymName,
-        payload.name ?? null,
-        payload.email ?? null,
-        payload.phone ?? null,
-        payload.address ?? null,
-        payload.city ?? null,
-        payload.state ?? null,
-        payload.country ?? null,
-        payload.gym_academy_url ?? null,
-        payload.facebook ?? null,
-        payload.instagram ?? null,
-        payload.owner_person_in_charge ?? null,
-        payload.source ?? null,
-        payload.owner_instagram ?? null,
-        payload.coaches ?? null,
-      ]
-    );
-  }
 }

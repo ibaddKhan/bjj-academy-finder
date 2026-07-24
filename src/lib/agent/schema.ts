@@ -7,37 +7,6 @@ export interface AgentResult {
   reason: string;
 }
 
-export const OUTPUT_SCHEMA = {
-  type: "object",
-  properties: {
-    foundGym: {
-      type: ["string", "null"],
-      description: "Name of the BJJ academy/gym where they currently train",
-    },
-    instagram: {
-      type: ["string", "null"],
-      description: "Full Instagram profile URL of the person (e.g. https://www.instagram.com/username)",
-    },
-    facebook: {
-      type: ["string", "null"],
-      description: "Full Facebook profile URL of the person",
-    },
-    smoothcomp: {
-      type: ["string", "null"],
-      description: "Full Smoothcomp profile URL of the person",
-    },
-    source: {
-      type: ["string", "null"],
-      description: "Which source confirmed the gym",
-    },
-    reason: {
-      type: "string",
-      description: "Brief explanation of how you found the gym or why you couldn't",
-    },
-  },
-  required: ["foundGym", "instagram", "facebook", "smoothcomp", "source", "reason"],
-};
-
 export function parseAgentResult(content: string): AgentResult {
   // Try to extract JSON from the content
   const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) ||

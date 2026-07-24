@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import {
   signAccessToken,
   ACCESS_TOKEN_EXPIRY_SECONDS,
+  REFRESH_TOKEN_EXPIRY_DAYS,
 } from "@/lib/auth/jwt";
 
 export async function GET(req: NextRequest) {
@@ -67,8 +68,12 @@ async function handleRefresh(
   const secure = process.env.NODE_ENV === "production";
 
   if (redirectPath) {
+    // Validate redirect path to prevent open redirect attacks
+    const safeRedirect = redirectPath.startsWith("/") && !redirectPath.startsWith("//")
+      ? redirectPath
+      : "/";
     // Called from middleware redirect — issue new cookie and redirect to original page
-    const target = new URL(redirectPath, req.url);
+    const target = new URL(safeRedirect, req.url);
     const res = NextResponse.redirect(target);
     res.cookies.set("access_token", newAccessToken, {
       httpOnly: true,
@@ -89,7 +94,7 @@ async function handleRefresh(
         httpOnly: false,
         secure,
         sameSite: "strict",
-        maxAge: ACCESS_TOKEN_EXPIRY_SECONDS,
+        maxAge: REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
         path: "/",
       }
     );
@@ -127,7 +132,7 @@ async function handleRefresh(
       httpOnly: false,
       secure,
       sameSite: "strict",
-      maxAge: ACCESS_TOKEN_EXPIRY_SECONDS,
+      maxAge: REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
       path: "/",
     }
   );

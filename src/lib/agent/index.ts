@@ -119,14 +119,13 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside it):
 }`;
 
   const modelToUse = settings.openrouterModel || "anthropic/claude-haiku-4-5";
-  console.log(`[agent] using model: ${modelToUse}`);
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${settings.openrouterKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": process.env.NEXTAUTH_URL ?? process.env.APP_URL ?? "http://localhost:3000",
+      "HTTP-Referer": process.env.APP_URL ?? "http://localhost:3000",
       "X-Title": "BJJ Academy Finder",
     },
     body: JSON.stringify({

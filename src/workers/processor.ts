@@ -439,6 +439,9 @@ async function processJob(bullJob: Job<JobPayload>) {
         where: { id: jobId },
         data: { totalRows: sheetRows.length },
       });
+
+      // Update local copy so SSE events have the correct totalRows
+      job.totalRows = sheetRows.length;
     }
   }
 
@@ -457,19 +460,22 @@ async function processJob(bullJob: Job<JobPayload>) {
   let doneRows = job.doneRows;
   let errorRows = job.errorRows;
 
-  for (const row of rows) {
-    // Check if job was stopped between rows
-    const currentStatus = await db.job.findUnique({
-      where: { id: jobId },
-      select: { status: true },
-    });
-    if (currentStatus?.status === "paused") {
-      await db.jobRow.updateMany({
-        where: { jobId, status: "running" },
-        data: { status: "pending" },
+  for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
+    const row = rows[rowIdx];
+    // Check if job was stopped — every 10 rows to reduce DB queries
+    if (rowIdx % 10 === 0) {
+      const currentStatus = await db.job.findUnique({
+        where: { id: jobId },
+        select: { status: true },
       });
-      emitJobEvent({ type: "job_stopped", jobId, timestamp: Date.now() });
-      return;
+      if (currentStatus?.status === "paused") {
+        await db.jobRow.updateMany({
+          where: { jobId, status: "running" },
+          data: { status: "pending" },
+        });
+        emitJobEvent({ type: "job_stopped", jobId, timestamp: Date.now() });
+        return;
+      }
     }
 
     const rowData = row.rowData as unknown as string[];

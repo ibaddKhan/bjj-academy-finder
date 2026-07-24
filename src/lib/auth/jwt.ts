@@ -3,6 +3,10 @@ import { randomUUID } from "crypto";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "dev-jwt-secret-change-in-production";
 
+if (process.env.NODE_ENV === "production" && JWT_SECRET === "dev-jwt-secret-change-in-production") {
+  throw new Error("JWT_SECRET must be set in production — do not use the default value");
+}
+
 export interface AuthUser {
   userId: string;
   username: string;

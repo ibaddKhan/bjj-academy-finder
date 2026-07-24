@@ -295,9 +295,15 @@ export function JobProgressView({
   async function handleStop() {
     setIsStopping(true);
     try {
-      await fetch(`/api/jobs/${jobId}/stop`, { method: "POST" });
+      const res = await fetch(`/api/jobs/${jobId}/stop`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Stop failed");
+      }
       setJob((prev) => ({ ...prev, status: "paused" }));
       eventSourceRef.current?.close();
+    } catch (err) {
+      setRetryError(err instanceof Error ? err.message : "Stop failed");
     } finally {
       setIsStopping(false);
     }
@@ -328,8 +334,14 @@ export function JobProgressView({
     if (!confirm("Delete this job and all its data? This cannot be undone.")) return;
     setIsDeleting(true);
     try {
-      await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+      const res = await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Delete failed");
+      }
       router.push("/");
+    } catch (err) {
+      setRetryError(err instanceof Error ? err.message : "Delete failed");
     } finally {
       setIsDeleting(false);
     }

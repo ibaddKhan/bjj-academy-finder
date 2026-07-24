@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decrypt, encrypt } from "@/lib/encrypt";
 import { db } from "@/lib/db";
+import { verifyAccessToken } from "@/lib/auth/jwt";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -20,6 +21,26 @@ export async function GET(req: NextRequest) {
   } catch {
     return NextResponse.redirect(
       new URL("/settings?google=error&reason=invalid_state", req.url)
+    );
+  }
+
+  // Verify the logged-in user matches the state userId
+  const accessToken = req.cookies.get("access_token")?.value;
+  if (!accessToken) {
+    return NextResponse.redirect(
+      new URL("/settings?google=error&reason=not_authenticated", req.url)
+    );
+  }
+  try {
+    const sessionUser = verifyAccessToken(accessToken);
+    if (sessionUser.userId !== stateData.userId) {
+      return NextResponse.redirect(
+        new URL("/settings?google=error&reason=user_mismatch", req.url)
+      );
+    }
+  } catch {
+    return NextResponse.redirect(
+      new URL("/settings?google=error&reason=not_authenticated", req.url)
     );
   }
 

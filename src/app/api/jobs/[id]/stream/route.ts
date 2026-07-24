@@ -50,12 +50,8 @@ export async function GET(
 
       const unsubscribe = subscribeToJob(jobId, send);
 
-      const cleanup = () => {
-        unsubscribe();
-      };
-
       // Close stream when job completes
-      subscribeToJob(jobId, (event) => {
+      const unsubscribe2 = subscribeToJob(jobId, (event) => {
         if (event.type === "job_complete" || event.type === "job_failed") {
           setTimeout(() => {
             cleanup();
@@ -67,6 +63,11 @@ export async function GET(
           }, 1000);
         }
       });
+
+      const cleanup = () => {
+        unsubscribe();
+        unsubscribe2();
+      };
 
       req.signal.addEventListener("abort", cleanup);
     },

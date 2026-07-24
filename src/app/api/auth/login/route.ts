@@ -13,6 +13,18 @@ const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
+
+  // Periodically clean up expired entries to prevent memory leak
+  if (loginAttempts.size > 100) {
+    for (const [key, val] of loginAttempts) {
+      if (val.resetAt < now) loginAttempts.delete(key);
+    }
+  }
+  // Hard cap to prevent unbounded growth
+  if (loginAttempts.size > 10_000) {
+    loginAttempts.clear();
+  }
+
   const entry = loginAttempts.get(ip);
   if (!entry || entry.resetAt < now) {
     loginAttempts.set(ip, { count: 1, resetAt: now + 60_000 });
@@ -132,7 +144,7 @@ export async function POST(req: NextRequest) {
       httpOnly: false,
       secure,
       sameSite: "strict",
-      maxAge: ACCESS_TOKEN_EXPIRY_SECONDS,
+      maxAge: REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
       path: "/",
     }
   );

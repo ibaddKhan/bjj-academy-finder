@@ -12,8 +12,11 @@ export async function scrapeWebsite(
   try {
     const encodedUrl = encodeURIComponent(url);
     const response = await fetch(
-      `https://api.scrapingant.com/v2/general?url=${encodedUrl}&x-api-key=${scrapingantKey}&browser=false`,
-      { method: "GET" }
+      `https://api.scrapingant.com/v2/general?url=${encodedUrl}&browser=false`,
+      {
+        method: "GET",
+        headers: { "x-api-key": scrapingantKey },
+      }
     );
 
     if (!response.ok) {
