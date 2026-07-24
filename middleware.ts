@@ -7,6 +7,7 @@ export function middleware(req: NextRequest) {
   // Allow public paths
   if (
     pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/test-enrichment-db") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon.ico") ||
     pathname === "/login"
