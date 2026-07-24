@@ -1,4 +1,4 @@
-import { Queue, Worker, QueueEvents } from "bullmq";
+import { Queue, Worker } from "bullmq";
 import IORedis from "ioredis";
 
 const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
@@ -45,6 +45,6 @@ export function getQueue(): Queue {
 
 export interface JobPayload {
   jobId: string;
-  userId: string;
+  teamId: string;
   onlyFailed?: boolean;
 }

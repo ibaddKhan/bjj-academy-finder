@@ -126,7 +126,7 @@ Respond with ONLY a valid JSON object (no markdown, no explanation outside it):
     headers: {
       Authorization: `Bearer ${settings.openrouterKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": process.env.NEXTAUTH_URL ?? "http://localhost:3000",
+      "HTTP-Referer": process.env.NEXTAUTH_URL ?? process.env.APP_URL ?? "http://localhost:3000",
       "X-Title": "BJJ Academy Finder",
     },
     body: JSON.stringify({

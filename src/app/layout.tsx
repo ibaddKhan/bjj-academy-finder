@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { auth } from "@/lib/auth";
-import { AuthProvider } from "@/components/AuthProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -24,24 +22,21 @@ async function initWorker() {
 }
 
 // Only init once (not during build)
-if (typeof window === "undefined" && process.env.NEXT_PHASE !== "phase-production-build") {
+if (
+  typeof window === "undefined" &&
+  process.env.NEXT_PHASE !== "phase-production-build"
+) {
   initWorker();
 }
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-
   return (
     <html lang="en" className="dark">
-      <body className={inter.className}>
-        <AuthProvider session={session}>
-          {children}
-        </AuthProvider>
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }

@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { SheetConnector } from "@/components/SheetConnector";
 import { ColumnMapper } from "@/components/ColumnMapper";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
 
 const STORAGE_KEY = "bjj_last_job_config";
@@ -51,7 +57,6 @@ export default function NewJobPage() {
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [savedConfig, setSavedConfig] = useState<SavedConfig | null>(null);
 
-  // Load saved config from localStorage on mount
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -81,7 +86,6 @@ export default function NewJobPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create job");
 
-      // Persist config for next time
       const config: SavedConfig = {
         sheetUrl: sheetInfo.sheetUrl,
         tabName: sheetInfo.tabName,
@@ -90,7 +94,7 @@ export default function NewJobPage() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
       } catch {
-        // ignore storage errors
+        // ignore
       }
 
       router.push(`/jobs/${data.job.id}`);
@@ -105,9 +109,9 @@ export default function NewJobPage() {
       <Navbar />
       <main className="max-w-2xl mx-auto px-4 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">New Job</h1>
+          <h1 className="text-2xl font-bold">New Person Finder Job</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Connect a Google Sheet and configure the column mapping
+            Connect a Google Sheet and configure the column mapping to find BJJ gyms
           </p>
         </div>
 
@@ -133,21 +137,18 @@ export default function NewJobPage() {
                 )}
                 {label}
               </div>
-              {i < STEPS.length - 1 && (
-                <div className="h-px w-8 bg-border" />
-              )}
+              {i < STEPS.length - 1 && <div className="h-px w-8 bg-border" />}
             </div>
           ))}
         </div>
 
-        {/* Step 0: Connect Sheet */}
         {step === 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Connect Google Sheet</CardTitle>
               <CardDescription>
-                Paste your Google Sheet URL. Make sure it&apos;s accessible by
-                your signed-in Google account.
+                Paste your Google Sheet URL. Make sure it&apos;s shared with your
+                team&apos;s service account.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -160,7 +161,6 @@ export default function NewJobPage() {
           </Card>
         )}
 
-        {/* Step 1: Map Columns */}
         {step === 1 && sheetInfo && (
           <Card>
             <CardHeader>

@@ -1,28 +1,29 @@
 import { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth/middleware";
 import { db } from "@/lib/db";
 import { subscribeToJob, SSEEvent } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+function jobFilter(user: { userId: string; teamId?: string; role: string }) {
+  if (user.role === "super_admin") return {};
+  return { teamId: user.teamId };
+}
+
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const user = getAuthUser(req);
+  if (!user) return new Response("Unauthorized", { status: 401 });
 
-  // Verify job belongs to user
+  // Verify job belongs to user's team
   const job = await db.job.findFirst({
-    where: { id: params.id, userId: session.user.id },
+    where: { id: params.id, ...jobFilter(user) },
   });
 
-  if (!job) {
-    return new Response("Job not found", { status: 404 });
-  }
+  if (!job) return new Response("Job not found", { status: 404 });
 
   const jobId = params.id;
 
@@ -49,7 +50,6 @@ export async function GET(
 
       const unsubscribe = subscribeToJob(jobId, send);
 
-      // Clean up on close
       const cleanup = () => {
         unsubscribe();
       };
@@ -68,8 +68,7 @@ export async function GET(
         }
       });
 
-      // Also clean up on abort
-      _req.signal.addEventListener("abort", cleanup);
+      req.signal.addEventListener("abort", cleanup);
     },
   });
 

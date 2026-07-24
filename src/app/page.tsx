@@ -1,14 +1,26 @@
-import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { getServerAuthUser } from "@/lib/auth/middleware";
 import { db } from "@/lib/db";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, CheckCircle2, XCircle, Clock, Loader2 } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Plus, CheckCircle2, XCircle, Clock, Loader2, Building2 } from "lucide-react";
 
-const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" }> = {
+const STATUS_BADGE: Record<
+  string,
+  {
+    label: string;
+    variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning";
+  }
+> = {
   queued: { label: "Queued", variant: "secondary" },
   running: { label: "Running", variant: "default" },
   completed: { label: "Completed", variant: "success" },
@@ -17,32 +29,44 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "second
 };
 
 export default async function DashboardPage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const user = await getServerAuthUser();
+  if (!user) redirect("/login");
 
-  const jobs = await db.job.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+  const jobs = user.teamId
+    ? await db.job.findMany({
+        where: { teamId: user.teamId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      })
+    : [];
 
   return (
     <div className="min-h-screen">
-      <Navbar />
+      <Navbar user={user} />
       <main className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">Jobs</h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Your BJJ academy lookup jobs
+              {user.teamId ? "Your team's scraping jobs" : "No active team — ask an admin to add you."}
             </p>
           </div>
-          <Button asChild>
-            <Link href="/jobs/new">
-              <Plus className="h-4 w-4 mr-2" />
-              New Job
-            </Link>
-          </Button>
+          {user.teamId && (
+            <div className="flex items-center gap-2">
+              <Button asChild variant="outline">
+                <Link href="/enrichment/new">
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Gym Enrichment
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href="/jobs/new">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Person Finder
+                </Link>
+              </Button>
+            </div>
+          )}
         </div>
 
         {jobs.length === 0 ? (
@@ -51,14 +75,26 @@ export default async function DashboardPage() {
               <Clock className="h-12 w-12 text-muted-foreground mb-4" />
               <CardTitle className="text-lg mb-2">No jobs yet</CardTitle>
               <CardDescription className="mb-4">
-                Connect a Google Sheet and start finding BJJ academies.
+                {user.teamId
+                  ? "Create a Person Finder or Gym Enrichment job to get started."
+                  : "Contact an admin to be added to a team."}
               </CardDescription>
-              <Button asChild>
-                <Link href="/jobs/new">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create your first job
-                </Link>
-              </Button>
+              {user.teamId && (
+                <div className="flex gap-2">
+                  <Button asChild variant="outline">
+                    <Link href="/enrichment/new">
+                      <Building2 className="h-4 w-4 mr-2" />
+                      Gym Enrichment
+                    </Link>
+                  </Button>
+                  <Button asChild>
+                    <Link href="/jobs/new">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Person Finder
+                    </Link>
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -71,6 +107,8 @@ export default async function DashboardPage() {
                       ((job.doneRows + job.errorRows) / job.totalRows) * 100
                     )
                   : 0;
+
+              const isEnrichment = !!job.templateSlug;
 
               return (
                 <Link key={job.id} href={`/jobs/${job.id}`}>
@@ -92,7 +130,15 @@ export default async function DashboardPage() {
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{job.tabName}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium truncate">{job.tabName}</p>
+                            <Badge
+                              variant={isEnrichment ? "default" : "outline"}
+                              className="text-xs shrink-0"
+                            >
+                              {isEnrichment ? "Gym Enrichment" : "Person Finder"}
+                            </Badge>
+                          </div>
                           <p className="text-xs text-muted-foreground truncate">
                             {job.sheetUrl}
                           </p>

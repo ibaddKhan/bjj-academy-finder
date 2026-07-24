@@ -1,41 +1,30 @@
 import { google } from "googleapis";
 import { db } from "@/lib/db";
+import { decrypt } from "@/lib/encrypt";
 
-async function getAuthClient(userId: string) {
-  const account = await db.account.findFirst({
-    where: { userId, provider: "google" },
-    select: { access_token: true, refresh_token: true, expires_at: true, providerAccountId: true },
+interface ServiceAccountKey {
+  client_email: string;
+  private_key: string;
+}
+
+async function getAuthClient(teamId: string) {
+  const row = await db.teamSettings.findUnique({
+    where: { teamId_key: { teamId, key: "googleServiceAccount" } },
   });
 
-  if (!account?.access_token) {
-    throw new Error("No Google access token found. Please sign in again.");
+  if (!row) {
+    throw new Error(
+      "Google service account not configured for this team. Please upload a service account JSON key in Settings."
+    );
   }
 
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
-  );
+  const serviceAccount = JSON.parse(decrypt(row.value)) as ServiceAccountKey;
 
-  oauth2Client.setCredentials({
-    access_token: account.access_token,
-    refresh_token: account.refresh_token ?? undefined,
-    expiry_date: account.expires_at ? account.expires_at * 1000 : undefined,
+  return new google.auth.JWT({
+    email: serviceAccount.client_email,
+    key: serviceAccount.private_key,
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
-
-  // Auto-refresh and persist new token
-  oauth2Client.on("tokens", async (tokens) => {
-    if (tokens.access_token) {
-      await db.account.update({
-        where: { provider_providerAccountId: { provider: "google", providerAccountId: account.providerAccountId } },
-        data: {
-          access_token: tokens.access_token,
-          expires_at: tokens.expiry_date ? Math.floor(tokens.expiry_date / 1000) : undefined,
-        },
-      });
-    }
-  });
-
-  return oauth2Client;
 }
 
 export function extractSheetId(url: string): string {
@@ -44,8 +33,21 @@ export function extractSheetId(url: string): string {
   return match[1];
 }
 
-export async function getSheetTabs(userId: string, sheetId: string) {
-  const auth = await getAuthClient(userId);
+export async function getServiceAccountEmail(teamId: string): Promise<string | null> {
+  const row = await db.teamSettings.findUnique({
+    where: { teamId_key: { teamId, key: "googleServiceAccount" } },
+  });
+  if (!row) return null;
+  try {
+    const sa = JSON.parse(decrypt(row.value)) as ServiceAccountKey;
+    return sa.client_email;
+  } catch {
+    return null;
+  }
+}
+
+export async function getSheetTabs(teamId: string, sheetId: string) {
+  const auth = await getAuthClient(teamId);
   const sheets = google.sheets({ version: "v4", auth });
 
   const response = await sheets.spreadsheets.get({
@@ -60,11 +62,11 @@ export async function getSheetTabs(userId: string, sheetId: string) {
 }
 
 export async function getSheetHeaders(
-  userId: string,
+  teamId: string,
   sheetId: string,
   tabName: string
 ): Promise<string[]> {
-  const auth = await getAuthClient(userId);
+  const auth = await getAuthClient(teamId);
   const sheets = google.sheets({ version: "v4", auth });
 
   const range = `'${tabName}'!1:1`;
@@ -78,7 +80,7 @@ export async function getSheetHeaders(
 }
 
 export async function getUnprocessedRows(
-  userId: string,
+  teamId: string,
   sheetId: string,
   tabName: string,
   filterColIndex: number,
@@ -86,7 +88,7 @@ export async function getUnprocessedRows(
   rowOffset = 0,
   rowLimit = 0
 ): Promise<{ rowIndex: number; rowData: string[] }[]> {
-  const auth = await getAuthClient(userId);
+  const auth = await getAuthClient(teamId);
   const sheets = google.sheets({ version: "v4", auth });
 
   const response = await sheets.spreadsheets.values.get({
@@ -113,7 +115,7 @@ export async function getUnprocessedRows(
 }
 
 export async function writeRowResult(
-  userId: string,
+  teamId: string,
   sheetId: string,
   tabName: string,
   rowIndex: number,
@@ -121,7 +123,7 @@ export async function writeRowResult(
 ) {
   if (updates.length === 0) return;
 
-  const auth = await getAuthClient(userId);
+  const auth = await getAuthClient(teamId);
   const sheets = google.sheets({ version: "v4", auth });
 
   const data = updates.map(({ colIndex, value }) => {
@@ -137,6 +139,26 @@ export async function writeRowResult(
     requestBody: {
       valueInputOption: "USER_ENTERED",
       data,
+    },
+  });
+}
+
+export async function appendRow(
+  teamId: string,
+  sheetId: string,
+  tabName: string,
+  values: string[]
+) {
+  const auth = await getAuthClient(teamId);
+  const sheets = google.sheets({ version: "v4", auth });
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId,
+    range: `'${tabName}'`,
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: {
+      values: [values],
     },
   });
 }

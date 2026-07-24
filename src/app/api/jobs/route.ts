@@ -1,23 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth/middleware";
 import { db } from "@/lib/db";
 import { getQueue } from "@/lib/queue";
 import { extractSheetId } from "@/lib/sheets";
 
-export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(req: NextRequest) {
+  const user = getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!user.teamId) {
+    return NextResponse.json({ jobs: [] });
   }
 
   const jobs = await db.job.findMany({
-    where: { userId: session.user.id },
+    where: { teamId: user.teamId },
     orderBy: { createdAt: "desc" },
     take: 50,
     select: {
       id: true,
       sheetUrl: true,
       tabName: true,
+      templateSlug: true,
       status: true,
       totalRows: true,
       doneRows: true,
@@ -31,9 +34,14 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (!user.teamId) {
+    return NextResponse.json(
+      { error: "No active team. Please ask an admin to add you to a team." },
+      { status: 403 }
+    );
   }
 
   let body: {
@@ -42,6 +50,9 @@ export async function POST(req: NextRequest) {
     tabId: string;
     tabName: string;
     columnMap: object;
+    templateSlug?: string;
+    destSheetId?: string;
+    destTabName?: string;
   };
 
   try {
@@ -50,16 +61,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { sheetUrl, sheetId, tabId, tabName, columnMap } = body;
+  const { sheetUrl, sheetId, tabId, tabName, columnMap, templateSlug, destSheetId, destTabName } = body;
 
   if (!sheetUrl || !sheetId || !tabId || !tabName || !columnMap) {
-    return NextResponse.json(
-      { error: "Missing required fields" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  // Verify the sheet URL is valid
   try {
     extractSheetId(sheetUrl);
   } catch {
@@ -69,12 +76,16 @@ export async function POST(req: NextRequest) {
   // Create the job in DB
   const job = await db.job.create({
     data: {
-      userId: session.user.id,
+      teamId: user.teamId,
+      createdById: user.userId,
       sheetUrl,
       sheetId,
       tabId,
       tabName,
       columnMap,
+      templateSlug: templateSlug ?? null,
+      destSheetId: destSheetId ?? null,
+      destTabName: destTabName ?? null,
       status: "queued",
     },
   });
@@ -83,7 +94,7 @@ export async function POST(req: NextRequest) {
   const queue = getQueue();
   await queue.add(
     "process-job",
-    { jobId: job.id, userId: session.user.id },
+    { jobId: job.id, teamId: user.teamId },
     { jobId: job.id }
   );
 

@@ -1,12 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Dumbbell, Settings, LogOut, Plus, LayoutDashboard } from "lucide-react";
+import {
+  Dumbbell,
+  Settings,
+  LogOut,
+  Plus,
+  LayoutDashboard,
+  Shield,
+  Building2,
+} from "lucide-react";
+import { AuthUser } from "@/lib/auth/jwt";
+import { TeamSelector } from "@/components/TeamSelector";
 
-export function Navbar() {
-  const { data: session } = useSession();
+interface NavbarProps {
+  user?: AuthUser | null;
+}
+
+// Read user_info from cookie (non-httpOnly, set at login)
+function getClientUser(): { name: string; username: string; role: string; teamId?: string } | null {
+  if (typeof document === "undefined") return null;
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)user_info=([^;]+)/);
+    if (!match) return null;
+    return JSON.parse(decodeURIComponent(match[1]));
+  } catch {
+    return null;
+  }
+}
+
+export function Navbar({ user: serverUser }: NavbarProps) {
+  const router = useRouter();
+
+  // Use server-provided user if available (server components), else read from cookie
+  const user =
+    serverUser ??
+    (typeof window !== "undefined" ? getClientUser() : null);
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <nav className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -17,7 +54,7 @@ export function Navbar() {
             <span>BJJ Academy Finder</span>
           </Link>
 
-          {session && (
+          {user && (
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/">
@@ -32,27 +69,33 @@ export function Navbar() {
                 </Link>
               </Button>
               <Button variant="ghost" size="sm" asChild>
+                <Link href="/enrichment/new">
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Enrich
+                </Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
                 <Link href="/settings">
                   <Settings className="h-4 w-4 mr-2" />
                   Settings
                 </Link>
               </Button>
+              {user.role === "super_admin" && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/admin">
+                    <Shield className="h-4 w-4 mr-2" />
+                    Admin
+                  </Link>
+                </Button>
+              )}
+
+              <TeamSelector />
+
               <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
-                {session.user?.image && (
-                  <img
-                    src={session.user.image}
-                    alt={session.user.name ?? "User"}
-                    className="h-8 w-8 rounded-full"
-                  />
-                )}
                 <span className="text-sm text-muted-foreground hidden sm:block">
-                  {session.user?.name}
+                  {user.name}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => signOut({ callbackUrl: "/login" })}
-                >
+                <Button variant="ghost" size="sm" onClick={handleLogout}>
                   <LogOut className="h-4 w-4" />
                 </Button>
               </div>

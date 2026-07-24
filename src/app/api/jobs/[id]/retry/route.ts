@@ -1,24 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAuthUser } from "@/lib/auth/middleware";
 import { db } from "@/lib/db";
 import { getQueue } from "@/lib/queue";
 
+function jobFilter(user: { userId: string; teamId?: string; role: string }) {
+  if (user.role === "super_admin") return {};
+  return { teamId: user.teamId };
+}
+
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = getAuthUser(req);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const job = await db.job.findFirst({
-    where: { id: params.id, userId: session.user.id },
+    where: { id: params.id, ...jobFilter(user) },
   });
 
-  if (!job) {
-    return NextResponse.json({ error: "Job not found" }, { status: 404 });
-  }
+  if (!job) return NextResponse.json({ error: "Job not found" }, { status: 404 });
 
   // Reset failed rows to pending
   const resetResult = await db.jobRow.updateMany({
@@ -32,26 +33,18 @@ export async function POST(
   });
 
   if (resetResult.count === 0) {
-    return NextResponse.json(
-      { error: "No failed rows to retry" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "No failed rows to retry" }, { status: 400 });
   }
 
-  // Reset job status
   await db.job.update({
     where: { id: params.id },
-    data: {
-      status: "queued",
-      errorRows: 0,
-    },
+    data: { status: "queued", errorRows: 0 },
   });
 
-  // Re-enqueue
   const queue = getQueue();
   await queue.add(
     "process-job",
-    { jobId: params.id, userId: session.user.id, onlyFailed: true },
+    { jobId: params.id, teamId: job.teamId, onlyFailed: true },
     { jobId: `${params.id}-retry-${Date.now()}` }
   );
 
