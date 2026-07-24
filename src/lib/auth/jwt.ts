@@ -1,10 +1,12 @@
 import jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "dev-jwt-secret-change-in-production";
-
-if (process.env.NODE_ENV === "production" && JWT_SECRET === "dev-jwt-secret-change-in-production") {
-  throw new Error("JWT_SECRET must be set in production — do not use the default value");
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET ?? "dev-jwt-secret-change-in-production";
+  if (process.env.NODE_ENV === "production" && secret === "dev-jwt-secret-change-in-production") {
+    throw new Error("JWT_SECRET must be set in production — do not use the default value");
+  }
+  return secret;
 }
 
 export interface AuthUser {
@@ -16,11 +18,11 @@ export interface AuthUser {
 }
 
 export function signAccessToken(payload: AuthUser): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "15m" });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "15m" });
 }
 
 export function verifyAccessToken(token: string): AuthUser {
-  const decoded = jwt.verify(token, JWT_SECRET) as AuthUser & {
+  const decoded = jwt.verify(token, getJwtSecret()) as AuthUser & {
     iat?: number;
     exp?: number;
   };
