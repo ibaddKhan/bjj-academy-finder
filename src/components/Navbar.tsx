@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -33,11 +34,16 @@ function getClientUser(): { name: string; username: string; role: string; teamId
 
 export function Navbar({ user: serverUser }: NavbarProps) {
   const router = useRouter();
+  const [clientUser, setClientUser] = useState<ReturnType<typeof getClientUser>>(null);
 
-  // Use server-provided user if available (server components), else read from cookie
-  const user =
-    serverUser ??
-    (typeof window !== "undefined" ? getClientUser() : null);
+  useEffect(() => {
+    if (!serverUser) {
+      setClientUser(getClientUser());
+    }
+  }, [serverUser]);
+
+  // Use server-provided user if available (server components), else read from cookie after mount
+  const user = serverUser ?? clientUser;
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
