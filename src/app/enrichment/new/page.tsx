@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { SheetConnector } from "@/components/SheetConnector";
-import { DestinationSheetConnector } from "@/components/DestinationSheetConnector";
 import { TemplateColumnMapper } from "@/components/TemplateColumnMapper";
 import {
   Card,
@@ -23,7 +22,7 @@ interface SheetInfo {
   tabName: string;
 }
 
-const STEPS = ["Source Sheet", "Destination Sheet", "Map Columns", "Launch"];
+const STEPS = ["Source Sheet", "Map Columns", "Launch"];
 
 const GYM_TEMPLATE_SLUG = "gym_enrichment";
 
@@ -31,12 +30,11 @@ export default function EnrichmentNewPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [sourceSheet, setSourceSheet] = useState<SheetInfo | null>(null);
-  const [destSheet, setDestSheet] = useState<SheetInfo | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
 
   async function handleLaunch(columnMap: object) {
-    if (!sourceSheet || !destSheet) return;
+    if (!sourceSheet) return;
     setIsLaunching(true);
     setLaunchError(null);
 
@@ -49,8 +47,6 @@ export default function EnrichmentNewPage() {
           sheetId: sourceSheet.sheetId,
           tabId: sourceSheet.tabId,
           tabName: sourceSheet.tabName,
-          destSheetId: destSheet.sheetId,
-          destTabName: destSheet.tabName,
           columnMap,
           templateSlug: GYM_TEMPLATE_SLUG,
         }),
@@ -128,40 +124,13 @@ export default function EnrichmentNewPage() {
           </Card>
         )}
 
-        {/* Step 1: Destination Sheet */}
+        {/* Step 1: Map Columns */}
         {step === 1 && sourceSheet && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Destination Sheet</CardTitle>
-              <CardDescription>
-                Where enrichment results will be appended. Can be the same sheet or a separate one.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DestinationSheetConnector
-                sourceSheetUrl={sourceSheet.sheetUrl}
-                onConnected={(info) => {
-                  setDestSheet(info);
-                  setStep(2);
-                }}
-              />
-              <div className="mt-4">
-                <Button variant="ghost" size="sm" onClick={() => setStep(0)}>
-                  ← Back
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step 2: Map Columns */}
-        {step === 2 && sourceSheet && destSheet && (
           <Card>
             <CardHeader>
               <CardTitle>Map Columns</CardTitle>
               <CardDescription>
-                Source: <strong>{sourceSheet.tabName}</strong> → Dest:{" "}
-                <strong>{destSheet.tabName}</strong>
+                Map source sheet columns for input and status tracking.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -169,8 +138,6 @@ export default function EnrichmentNewPage() {
                 templateSlug={GYM_TEMPLATE_SLUG}
                 sourceSheetId={sourceSheet.sheetId}
                 sourceTabName={sourceSheet.tabName}
-                destSheetId={destSheet.sheetId}
-                destTabName={destSheet.tabName}
                 onLaunch={handleLaunch}
                 isLaunching={isLaunching}
               />
@@ -178,7 +145,7 @@ export default function EnrichmentNewPage() {
                 <p className="mt-3 text-sm text-destructive">{launchError}</p>
               )}
               <div className="mt-4">
-                <Button variant="ghost" size="sm" onClick={() => setStep(1)}>
+                <Button variant="ghost" size="sm" onClick={() => setStep(0)}>
                   ← Back
                 </Button>
               </div>

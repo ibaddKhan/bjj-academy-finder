@@ -1,7 +1,7 @@
 import { Worker, Job } from "bullmq";
 import { db } from "@/lib/db";
 import { getRedisConnection, JOB_QUEUE_NAME, JobPayload } from "@/lib/queue";
-import { getUnprocessedRows, writeRowResult, appendRow } from "@/lib/sheets";
+import { getUnprocessedRows, writeRowResult } from "@/lib/sheets";
 import { runAgent, AgentSettings } from "@/lib/agent";
 import { decrypt } from "@/lib/encrypt";
 import { emitJobEvent } from "@/lib/events";
@@ -37,7 +37,6 @@ interface EnrichmentColumnMap {
   rowOffset?: number;
   rowLimit?: number;
   sourceOutputCols: Record<string, number>;
-  destOutputCols: Record<string, number>;
 }
 
 // Load and decrypt all settings for a team in one DB query
@@ -233,8 +232,6 @@ async function processTemplateRow(
     templateSlug: string;
     sheetId: string;
     tabName: string;
-    destSheetId: string | null;
-    destTabName: string | null;
     columnMap: EnrichmentColumnMap;
   },
   rowRecord: { id: string; rowIndex: number; rowData: string[] },
@@ -242,7 +239,7 @@ async function processTemplateRow(
   settings: TemplateSettings,
   template: PipelineTemplate
 ) {
-  const { id: jobId, templateSlug, sheetId, tabName, destSheetId, destTabName, columnMap } = jobRecord;
+  const { id: jobId, templateSlug, sheetId, tabName, columnMap } = jobRecord;
   const { id: rowId, rowIndex, rowData } = rowRecord;
 
   // Extract input values from row data using column index map
@@ -319,29 +316,6 @@ async function processTemplateRow(
         writeAttempts++;
         if (writeAttempts >= 5) throw err;
         await sleep(2000 * writeAttempts);
-      }
-    }
-
-    // Append enrichment result row to destination sheet
-    if (destSheetId && destTabName && result.data) {
-      const destEntries = Object.entries(columnMap.destOutputCols);
-      if (destEntries.length > 0) {
-        const maxColIdx = Math.max(...destEntries.map(([, idx]) => idx));
-        const destRow = new Array(maxColIdx + 1).fill("");
-        for (const [key, colIdx] of destEntries) {
-          destRow[colIdx] = String(result.data[key] ?? "");
-        }
-        let appendAttempts = 0;
-        while (appendAttempts < 5) {
-          try {
-            await appendRow(teamId, destSheetId, destTabName, destRow);
-            break;
-          } catch (err) {
-            appendAttempts++;
-            if (appendAttempts >= 5) throw err;
-            await sleep(2000 * appendAttempts);
-          }
-        }
       }
     }
 
@@ -492,8 +466,6 @@ async function processJob(bullJob: Job<JobPayload>) {
             templateSlug: job.templateSlug!,
             sheetId: job.sheetId,
             tabName: job.tabName,
-            destSheetId: job.destSheetId ?? null,
-            destTabName: job.destTabName ?? null,
             columnMap: columnMap as EnrichmentColumnMap,
           },
           { id: row.id, rowIndex: row.rowIndex, rowData },

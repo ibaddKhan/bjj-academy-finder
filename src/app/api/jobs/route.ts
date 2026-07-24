@@ -51,8 +51,6 @@ export async function POST(req: NextRequest) {
     tabName: string;
     columnMap: object;
     templateSlug?: string;
-    destSheetId?: string;
-    destTabName?: string;
   };
 
   try {
@@ -61,7 +59,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { sheetUrl, sheetId, tabId, tabName, columnMap, templateSlug, destSheetId, destTabName } = body;
+  const { sheetUrl, sheetId, tabId, tabName, columnMap, templateSlug } = body;
 
   if (!sheetUrl || !sheetId || !tabId || !tabName || !columnMap) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -84,8 +82,6 @@ export async function POST(req: NextRequest) {
       tabName,
       columnMap,
       templateSlug: templateSlug ?? null,
-      destSheetId: destSheetId ?? null,
-      destTabName: destTabName ?? null,
       status: "queued",
     },
   });
