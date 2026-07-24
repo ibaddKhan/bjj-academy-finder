@@ -9,14 +9,6 @@ import { RowLogCard } from "@/components/RowLogCard";
 import { CheckCircle2, XCircle, Loader2, RotateCcw, RefreshCcw, Square, Trash2 } from "lucide-react";
 import { SSEEvent } from "@/lib/events";
 
-interface AgentResult {
-  foundGym: string | null;
-  instagram: string | null;
-  facebook: string | null;
-  smoothcomp: string | null;
-  source: string | null;
-  reason: string;
-}
 
 interface ToolLogEntry {
   type: "tool_call" | "tool_result";
@@ -31,7 +23,7 @@ interface RowState {
   rowIndex: number;
   attendeeName: string;
   status: "pending" | "running" | "success" | "error" | "skipped";
-  result?: AgentResult | Record<string, unknown> | null;
+  result?: Record<string, unknown> | null;
   error?: string | null;
   toolLog: ToolLogEntry[];
   attempts: number;
@@ -214,7 +206,7 @@ export function JobProgressView({
               next.set(event.rowId!, {
                 ...row,
                 status: "success",
-                result: event.result as AgentResult,
+                result: event.result as Record<string, unknown>,
               });
             }
             return next;

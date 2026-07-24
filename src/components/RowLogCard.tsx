@@ -25,21 +25,12 @@ interface ToolLogEntry {
   timestamp: number;
 }
 
-interface AgentResult {
-  foundGym: string | null;
-  instagram: string | null;
-  facebook: string | null;
-  smoothcomp: string | null;
-  source: string | null;
-  reason: string;
-}
-
 interface RowLogCardProps {
   rowId: string;
   rowIndex: number;
   attendeeName: string;
   status: "pending" | "running" | "success" | "error" | "skipped";
-  result?: AgentResult | null;
+  result?: Record<string, unknown> | null;
   error?: string | null;
   toolLog?: ToolLogEntry[];
   attempts?: number;
@@ -148,9 +139,9 @@ export function RowLogCard({
       {/* Quick result line */}
       {status === "success" && result?.foundGym && !expanded && (
         <div className="px-4 pb-3 text-sm text-muted-foreground">
-          <span className="text-green-400 font-medium">{result.foundGym}</span>
+          <span className="text-green-400 font-medium">{String(result.foundGym)}</span>
           {result.source && (
-            <span className="ml-2 text-xs">via {result.source}</span>
+            <span className="ml-2 text-xs">via {String(result.source)}</span>
           )}
         </div>
       )}
@@ -216,35 +207,35 @@ export function RowLogCard({
               {result.foundGym && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Gym: </span>
-                  <span className="font-medium text-green-400">{result.foundGym}</span>
+                  <span className="font-medium text-green-400">{String(result.foundGym)}</span>
                 </p>
               )}
               {result.source && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Source: </span>
-                  {result.source}
+                  {String(result.source)}
                 </p>
               )}
               {result.instagram && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Instagram: </span>
-                  {result.instagram}
+                  {String(result.instagram)}
                 </p>
               )}
               {result.facebook && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Facebook: </span>
-                  {result.facebook}
+                  {String(result.facebook)}
                 </p>
               )}
               {result.smoothcomp && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Smoothcomp: </span>
-                  {result.smoothcomp}
+                  {String(result.smoothcomp)}
                 </p>
               )}
               {result.reason && (
-                <p className="text-xs text-muted-foreground italic">{result.reason}</p>
+                <p className="text-xs text-muted-foreground italic">{String(result.reason)}</p>
               )}
             </div>
           )}
