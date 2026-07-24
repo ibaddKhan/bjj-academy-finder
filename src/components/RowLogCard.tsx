@@ -38,6 +38,12 @@ interface RowLogCardProps {
   isLive?: boolean;
 }
 
+function getString(obj: Record<string, unknown> | null | undefined, key: string): string | null {
+  const val = obj?.[key];
+  if (val == null) return null;
+  return String(val);
+}
+
 const TOOL_ICONS: Record<string, React.ReactNode> = {
   search: <Search className="h-3.5 w-3.5" />,
   instagram: <Instagram className="h-3.5 w-3.5" />,
@@ -45,24 +51,27 @@ const TOOL_ICONS: Record<string, React.ReactNode> = {
   smoothcomp: <Globe className="h-3.5 w-3.5" />,
 };
 
-const STATUS_CONFIG = {
-  pending: { label: "Pending", color: "secondary" as const, icon: null },
+const STATUS_CONFIG: Record<
+  "pending" | "running" | "success" | "error" | "skipped",
+  { label: string; color: "secondary" | "default" | "success" | "destructive" | "outline"; icon: React.ReactNode }
+> = {
+  pending: { label: "Pending", color: "secondary", icon: null },
   running: {
     label: "Running",
-    color: "default" as const,
+    color: "default",
     icon: <Loader2 className="h-3.5 w-3.5 animate-spin" />,
   },
   success: {
     label: "Success",
-    color: "success" as const,
+    color: "success",
     icon: <CheckCircle2 className="h-3.5 w-3.5" />,
   },
   error: {
     label: "Error",
-    color: "destructive" as const,
+    color: "destructive",
     icon: <XCircle className="h-3.5 w-3.5" />,
   },
-  skipped: { label: "Skipped", color: "outline" as const, icon: null },
+  skipped: { label: "Skipped", color: "outline", icon: null },
 };
 
 export function RowLogCard({
@@ -97,6 +106,14 @@ export function RowLogCard({
       i++;
     }
   }
+
+  // Extract typed strings from result (avoids 'unknown' in JSX expressions)
+  const foundGym = getString(result, "foundGym");
+  const source = getString(result, "source");
+  const instagram = getString(result, "instagram");
+  const facebook = getString(result, "facebook");
+  const smoothcomp = getString(result, "smoothcomp");
+  const reason = getString(result, "reason");
 
   return (
     <div
@@ -137,11 +154,11 @@ export function RowLogCard({
       </button>
 
       {/* Quick result line */}
-      {status === "success" && result?.foundGym && !expanded && (
+      {status === "success" && foundGym && !expanded && (
         <div className="px-4 pb-3 text-sm text-muted-foreground">
-          <span className="text-green-400 font-medium">{String(result.foundGym)}</span>
-          {result.source && (
-            <span className="ml-2 text-xs">via {String(result.source)}</span>
+          <span className="text-green-400 font-medium">{foundGym}</span>
+          {source && (
+            <span className="ml-2 text-xs">via {source}</span>
           )}
         </div>
       )}
@@ -204,38 +221,38 @@ export function RowLogCard({
           {/* Final result */}
           {status === "success" && result && (
             <div className="border-t border-border/40 pt-3 space-y-1.5">
-              {result.foundGym && (
+              {foundGym && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Gym: </span>
-                  <span className="font-medium text-green-400">{String(result.foundGym)}</span>
+                  <span className="font-medium text-green-400">{foundGym}</span>
                 </p>
               )}
-              {result.source && (
+              {source && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Source: </span>
-                  {String(result.source)}
+                  {source}
                 </p>
               )}
-              {result.instagram && (
+              {instagram && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Instagram: </span>
-                  {String(result.instagram)}
+                  {instagram}
                 </p>
               )}
-              {result.facebook && (
+              {facebook && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Facebook: </span>
-                  {String(result.facebook)}
+                  {facebook}
                 </p>
               )}
-              {result.smoothcomp && (
+              {smoothcomp && (
                 <p className="text-sm">
                   <span className="text-muted-foreground">Smoothcomp: </span>
-                  {String(result.smoothcomp)}
+                  {smoothcomp}
                 </p>
               )}
-              {result.reason && (
-                <p className="text-xs text-muted-foreground italic">{String(result.reason)}</p>
+              {reason && (
+                <p className="text-xs text-muted-foreground italic">{reason}</p>
               )}
             </div>
           )}
