@@ -143,32 +143,3 @@ model JobRow {
   @@index([jobId, status])
 }
 
-// ─── Enrichment DB ────────────────────────────────────────────────────────────
-
-model EventEnrichment {
-  id                     String  @id @default(cuid())
-  name                   String?
-  name_id                String?
-  email                  String?
-  phone                  String?
-  address                String?
-  city                   String?
-  state                  String?
-  country                String?
-  gym_academy_url        String?
-  facebook               String?
-  instagram              String?
-  owner_person_in_charge String?
-  source                 String?
-  competitor             String?
-  owner_instagram        String?
-  coaches                String?
-  owner_competing        String?
-  customer               String?
-  customer_status        String?
-  hubspot_id             String?
-  event                  String?
-
-  @@index([name_id])
-  @@map("event_enrichments")
-}

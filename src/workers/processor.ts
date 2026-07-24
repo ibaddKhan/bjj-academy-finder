@@ -6,6 +6,7 @@ import { runAgent, AgentSettings } from "@/lib/agent";
 import { decrypt } from "@/lib/encrypt";
 import { emitJobEvent } from "@/lib/events";
 import { getTemplate, PipelineTemplate, TemplateResult, TemplateSettings } from "@/lib/templates/registry";
+import { enrichmentExists, upsertEnrichment } from "@/lib/enrichment-db";
 
 interface ColumnMap {
   nameCol: number;
@@ -112,13 +113,13 @@ function parseLocations(locations: string | null | undefined): {
   return { address, city, state, country };
 }
 
-async function upsertEventEnrichment(gymName: string, result: TemplateResult) {
+async function writeEventEnrichment(gymName: string, result: TemplateResult) {
   if (!result.data) return;
   const d = result.data;
   const { facebook, instagram } = parseSocialMedia(d.social_media as string | null);
   const locationParsed = parseLocations(d.locations as string | null);
 
-  const payload = {
+  await upsertEnrichment(gymName, {
     name: (d.name as string | null) ?? null,
     email: (d.email as string | null) ?? null,
     phone: (d.phone as string | null) ?? null,
@@ -130,18 +131,7 @@ async function upsertEventEnrichment(gymName: string, result: TemplateResult) {
     source: "AI Agent Tool",
     owner_instagram: (d.owner_instagram as string | null) ?? null,
     coaches: (d.coaches as string | null) ?? null,
-  };
-
-  const existing = await db.eventEnrichment.findFirst({
-    where: { name_id: gymName },
-    select: { id: true },
   });
-
-  if (existing) {
-    await db.eventEnrichment.update({ where: { id: existing.id }, data: payload });
-  } else {
-    await db.eventEnrichment.create({ data: { name_id: gymName, ...payload } });
-  }
 }
 
 // ─── Person Finder row processor ──────────────────────────────────────────────
@@ -262,12 +252,7 @@ async function processTemplateRow(
 
   // ── Deduplication pre-check (gym_enrichment only) ─────────────────────────
   if (templateSlug === "gym_enrichment" && input.gymName) {
-    const existing = await db.eventEnrichment.findFirst({
-      where: { name_id: input.gymName },
-      select: { id: true },
-    });
-
-    if (existing) {
+    if (await enrichmentExists(input.gymName)) {
       // Already enriched — mark done in source sheet and skip
       await writeRowResult(teamId, sheetId, tabName, rowIndex, [
         { colIndex: columnMap.doneCol, value: columnMap.doneValue },
@@ -361,7 +346,7 @@ async function processTemplateRow(
     // ── Write to event_enrichments DB (gym_enrichment only) ──────────────────
     if (templateSlug === "gym_enrichment" && result.success && input.gymName) {
       try {
-        await upsertEventEnrichment(input.gymName, result);
+        await writeEventEnrichment(input.gymName, result);
       } catch (dbErr) {
         console.error("Failed to upsert event_enrichments:", dbErr);
         // Non-fatal — don't fail the row over a DB write issue
