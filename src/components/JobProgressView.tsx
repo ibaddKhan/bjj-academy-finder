@@ -31,7 +31,7 @@ interface RowState {
   rowIndex: number;
   attendeeName: string;
   status: "pending" | "running" | "success" | "error" | "skipped";
-  result?: AgentResult | null;
+  result?: AgentResult | Record<string, unknown> | null;
   error?: string | null;
   toolLog: ToolLogEntry[];
   attempts: number;
