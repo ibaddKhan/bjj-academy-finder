@@ -13,7 +13,6 @@ const SETTINGS_KEYS = [
   "scrapingantKey",
   "enrichmentModel1",
   "enrichmentModel2",
-  "googleServiceAccount",
 ] as const;
 
 type SettingsKey = (typeof SETTINGS_KEYS)[number];
@@ -28,7 +27,7 @@ const MASKED_KEYS: SettingsKey[] = [
   "scrapingantKey",
 ];
 
-// Keys returned as plain (model names, service account email only)
+// Keys returned as plain (model names)
 const PLAIN_KEYS: SettingsKey[] = ["openrouterModel", "enrichmentModel1", "enrichmentModel2"];
 
 export async function GET(req: NextRequest) {
@@ -45,21 +44,17 @@ export async function GET(req: NextRequest) {
 
   const settings: Record<string, string> = {};
   for (const row of rows) {
+    if (row.key === "googleOAuthEmail") {
+      settings.googleOAuthEmail = decrypt(row.value);
+      continue;
+    }
+
     if (!SETTINGS_KEYS.includes(row.key as SettingsKey)) continue;
     const key = row.key as SettingsKey;
 
-    if (key === "googleServiceAccount") {
-      // Return just the service account email for display
-      try {
-        const sa = JSON.parse(decrypt(row.value)) as { client_email: string };
-        settings.googleServiceAccountEmail = sa.client_email;
-      } catch {
-        settings.googleServiceAccountEmail = "Invalid (re-upload needed)";
-      }
-    } else if (PLAIN_KEYS.includes(key)) {
+    if (PLAIN_KEYS.includes(key)) {
       settings[key] = decrypt(row.value);
     } else if (MASKED_KEYS.includes(key)) {
-      // Return masked version: show key is set
       const decrypted = decrypt(row.value);
       settings[key] = decrypted
         ? decrypted.slice(0, 4) + "••••••••" + decrypted.slice(-4)

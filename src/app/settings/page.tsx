@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getServerAuthUser } from "@/lib/auth/middleware";
 import { Navbar } from "@/components/Navbar";
@@ -17,7 +18,9 @@ export default async function SettingsPage() {
             Configure API keys and credentials for your team
           </p>
         </div>
-        <SettingsForm />
+        <Suspense>
+          <SettingsForm />
+        </Suspense>
       </main>
     </div>
   );

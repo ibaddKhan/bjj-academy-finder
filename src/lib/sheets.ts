@@ -1,49 +1,46 @@
 import { google } from "googleapis";
 import { db } from "@/lib/db";
-import { decrypt } from "@/lib/encrypt";
-
-interface ServiceAccountKey {
-  client_email: string;
-  private_key: string;
-}
+import { decrypt, encrypt } from "@/lib/encrypt";
 
 async function getAuthClient(teamId: string) {
   const row = await db.teamSettings.findUnique({
-    where: { teamId_key: { teamId, key: "googleServiceAccount" } },
+    where: { teamId_key: { teamId, key: "googleOAuthRefreshToken" } },
   });
 
   if (!row) {
     throw new Error(
-      "Google service account not configured for this team. Please upload a service account JSON key in Settings."
+      "Google Sheets not connected. Go to Settings → Connect with Google."
     );
   }
 
-  const serviceAccount = JSON.parse(decrypt(row.value)) as ServiceAccountKey;
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
-  return new google.auth.JWT({
-    email: serviceAccount.client_email,
-    key: serviceAccount.private_key,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  if (!clientId || !clientSecret) {
+    throw new Error("GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not configured.");
+  }
+
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2Client.setCredentials({ refresh_token: decrypt(row.value) });
+
+  // When Google issues a new refresh token, store it
+  oauth2Client.on("tokens", async (tokens) => {
+    if (tokens.refresh_token) {
+      await db.teamSettings.upsert({
+        where: { teamId_key: { teamId, key: "googleOAuthRefreshToken" } },
+        update: { value: encrypt(tokens.refresh_token) },
+        create: { teamId, key: "googleOAuthRefreshToken", value: encrypt(tokens.refresh_token) },
+      });
+    }
   });
+
+  return oauth2Client;
 }
 
 export function extractSheetId(url: string): string {
   const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   if (!match) throw new Error("Invalid Google Sheets URL");
   return match[1];
-}
-
-export async function getServiceAccountEmail(teamId: string): Promise<string | null> {
-  const row = await db.teamSettings.findUnique({
-    where: { teamId_key: { teamId, key: "googleServiceAccount" } },
-  });
-  if (!row) return null;
-  try {
-    const sa = JSON.parse(decrypt(row.value)) as ServiceAccountKey;
-    return sa.client_email;
-  } catch {
-    return null;
-  }
 }
 
 export async function getSheetTabs(teamId: string, sheetId: string) {

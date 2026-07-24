@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Save, Eye, EyeOff, Upload, CheckCircle2 } from "lucide-react";
+import { Save, Eye, EyeOff, CheckCircle2, LinkIcon, Unlink } from "lucide-react";
 
 interface SettingsData {
   serperKey: string;
@@ -23,7 +24,6 @@ interface SettingsData {
   openrouterModel: string;
   enrichmentModel1: string;
   enrichmentModel2: string;
-  googleServiceAccount: string;
 }
 
 const API_KEY_FIELDS: (keyof SettingsData)[] = [
@@ -51,7 +51,6 @@ const FIELD_LABELS: Record<keyof SettingsData, string> = {
   openrouterModel: "Person Finder Model",
   enrichmentModel1: "Gym Enrichment — Stage 1 Model",
   enrichmentModel2: "Gym Enrichment — Stage 2 Model",
-  googleServiceAccount: "Google Service Account JSON",
 };
 
 const MODEL_PLACEHOLDERS: Record<string, string> = {
@@ -61,22 +60,26 @@ const MODEL_PLACEHOLDERS: Record<string, string> = {
 };
 
 export function SettingsForm() {
+  const searchParams = useSearchParams();
   const [settings, setSettings] = useState<Partial<SettingsData>>({});
-  const [serviceAccountEmail, setServiceAccountEmail] = useState<string | null>(null);
+  const [googleEmail, setGoogleEmail] = useState<string | null>(null);
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const googleStatus = searchParams.get("google");
 
   useEffect(() => {
     fetch("/api/settings")
       .then((r) => r.json())
       .then((data) => {
         if (data.settings) {
-          const { googleServiceAccountEmail, ...rest } = data.settings;
+          const { googleOAuthEmail, ...rest } = data.settings;
           setSettings((prev) => ({ ...prev, ...rest }));
-          if (googleServiceAccountEmail) {
-            setServiceAccountEmail(googleServiceAccountEmail);
+          if (googleOAuthEmail) {
+            setGoogleEmail(googleOAuthEmail);
           }
         }
       })
@@ -106,25 +109,18 @@ export function SettingsForm() {
     }
   }
 
-  function handleServiceAccountUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const content = ev.target?.result as string;
-        const parsed = JSON.parse(content);
-        if (!parsed.client_email || !parsed.private_key) {
-          throw new Error("Invalid service account JSON (missing client_email or private_key)");
-        }
-        setSettings((prev) => ({ ...prev, googleServiceAccount: content }));
-        setServiceAccountEmail(parsed.client_email);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Invalid JSON file");
+  async function handleDisconnectGoogle() {
+    setDisconnecting(true);
+    try {
+      const res = await fetch("/api/auth/google/disconnect", { method: "DELETE" });
+      if (res.ok) {
+        setGoogleEmail(null);
       }
-    };
-    reader.readAsText(file);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Disconnect failed");
+    } finally {
+      setDisconnecting(false);
+    }
   }
 
   function toggleShow(key: string) {
@@ -133,46 +129,61 @@ export function SettingsForm() {
 
   return (
     <form onSubmit={handleSave} className="space-y-6">
-      {/* Google Service Account */}
+      {/* Google Sheets Connection */}
       <Card>
         <CardHeader>
-          <CardTitle>Google Service Account</CardTitle>
+          <CardTitle>Google Sheets</CardTitle>
           <CardDescription>
-            Upload a Google service account JSON key. Share your spreadsheets with
-            the service account email below.
+            Connect your Google account to allow reading and writing Google Sheets.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {serviceAccountEmail && (
+          {googleStatus === "connected" && !googleEmail && (
             <div className="flex items-center gap-2 p-3 rounded-md bg-green-500/10 border border-green-500/20">
               <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Service account configured</p>
-                <p className="text-sm font-mono truncate">{serviceAccountEmail}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Share your Google Sheets with this email to grant access.
-                </p>
-              </div>
+              <p className="text-sm text-green-500">Google account connected successfully!</p>
             </div>
           )}
-          <div className="space-y-2">
-            <Label>Upload JSON Key File</Label>
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-2 px-4 py-2 border border-border rounded-md cursor-pointer hover:bg-muted/50 transition-colors text-sm">
-                <Upload className="h-4 w-4" />
-                {serviceAccountEmail ? "Replace key file" : "Upload key file"}
-                <input
-                  type="file"
-                  accept=".json"
-                  className="hidden"
-                  onChange={handleServiceAccountUpload}
-                />
-              </label>
-              {settings.googleServiceAccount && (
-                <span className="text-sm text-green-500">Ready to save ✓</span>
-              )}
+          {googleStatus === "error" && (
+            <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 border border-destructive/20">
+              <p className="text-sm text-destructive">
+                Failed to connect Google account. Please try again.
+              </p>
             </div>
-          </div>
+          )}
+
+          {googleEmail ? (
+            <div className="flex items-center justify-between gap-4 p-3 rounded-md bg-green-500/10 border border-green-500/20">
+              <div className="flex items-center gap-2 min-w-0">
+                <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Connected as</p>
+                  <p className="text-sm font-mono truncate">{googleEmail}</p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDisconnectGoogle}
+                disabled={disconnecting}
+              >
+                <Unlink className="h-4 w-4 mr-1" />
+                {disconnecting ? "Disconnecting..." : "Disconnect"}
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                window.location.href = "/api/auth/google/connect";
+              }}
+            >
+              <LinkIcon className="h-4 w-4 mr-2" />
+              Connect with Google
+            </Button>
+          )}
         </CardContent>
       </Card>
 
