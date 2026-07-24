@@ -7,6 +7,8 @@ import { decrypt } from "@/lib/encrypt";
 import { emitJobEvent } from "@/lib/events";
 import { getTemplate, PipelineTemplate, TemplateResult, TemplateSettings } from "@/lib/templates/registry";
 import { enrichmentExists, upsertEnrichment } from "@/lib/enrichment-db";
+// Register all templates (must be after registry import to avoid circular TDZ)
+import "@/lib/templates/gym-enrichment";
 
 interface ColumnMap {
   nameCol: number;

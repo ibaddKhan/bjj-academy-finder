@@ -66,5 +66,3 @@ export function listTemplates(): PipelineTemplate[] {
   return Object.values(templates);
 }
 
-// Auto-register templates on import
-import "@/lib/templates/gym-enrichment";
