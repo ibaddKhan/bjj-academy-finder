@@ -21,14 +21,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "teamId is required" }, { status: 400 });
   }
 
-  // Super admin can switch to any team
-  if (user.role !== "super_admin") {
-    const membership = await db.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId: user.userId } },
-    });
-    if (!membership) {
-      return NextResponse.json({ error: "Not a member of this team" }, { status: 403 });
-    }
+  // Super admin has no team context — block team switching entirely
+  if (user.role === "super_admin") {
+    return NextResponse.json({ error: "Super admins do not belong to teams" }, { status: 403 });
+  }
+
+  const membership = await db.teamMember.findUnique({
+    where: { teamId_userId: { teamId, userId: user.userId } },
+  });
+  if (!membership) {
+    return NextResponse.json({ error: "Not a member of this team" }, { status: 403 });
   }
 
   const newAccessToken = signAccessToken({

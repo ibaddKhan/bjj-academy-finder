@@ -69,6 +69,10 @@ export async function PUT(req: NextRequest) {
   const user = getAuthUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (user.role === "super_admin") {
+    return NextResponse.json({ error: "Super admins do not have team settings" }, { status: 403 });
+  }
+
   if (!user.teamId) {
     return NextResponse.json({ error: "No active team" }, { status: 403 });
   }

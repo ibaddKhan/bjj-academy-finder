@@ -37,6 +37,10 @@ export async function POST(req: NextRequest) {
   const user = getAuthUser(req);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (user.role === "super_admin") {
+    return NextResponse.json({ error: "Super admins cannot create jobs" }, { status: 403 });
+  }
+
   if (!user.teamId) {
     return NextResponse.json(
       { error: "No active team. Please ask an admin to add you to a team." },
