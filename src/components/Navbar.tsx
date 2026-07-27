@@ -62,40 +62,44 @@ export function Navbar({ user: serverUser }: NavbarProps) {
 
           {user && (
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/">
-                  <LayoutDashboard className="h-4 w-4 mr-2" />
-                  Dashboard
-                </Link>
-              </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/jobs/new">
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Job
-                </Link>
-              </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/enrichment/new">
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Enrich
-                </Link>
-              </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/settings">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Settings
-                </Link>
-              </Button>
-              {user.role === "super_admin" && (
+              {user.role === "super_admin" ? (
+                // Admin-only nav: no jobs, no settings, no team selector
                 <Button variant="ghost" size="sm" asChild>
                   <Link href="/admin">
                     <Shield className="h-4 w-4 mr-2" />
                     Admin
                   </Link>
                 </Button>
+              ) : (
+                // Regular member nav
+                <>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/">
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Dashboard
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/jobs/new">
+                      <Plus className="h-4 w-4 mr-2" />
+                      New Job
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/enrichment/new">
+                      <Building2 className="h-4 w-4 mr-2" />
+                      Enrich
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/settings">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Settings
+                    </Link>
+                  </Button>
+                  <TeamSelector />
+                </>
               )}
-
-              <TeamSelector />
 
               <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
                 <span className="text-sm text-muted-foreground hidden sm:block">

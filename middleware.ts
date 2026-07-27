@@ -18,7 +18,20 @@ export function middleware(req: NextRequest) {
 
   if (accessToken) {
     try {
-      verifyAccessToken(accessToken);
+      const user = verifyAccessToken(accessToken);
+
+      // Super-admin has no team and no jobs — keep them in /admin only
+      if (user.role === "super_admin") {
+        const isMemberPath =
+          pathname === "/" ||
+          pathname.startsWith("/settings") ||
+          pathname.startsWith("/jobs") ||
+          pathname.startsWith("/enrichment");
+        if (isMemberPath) {
+          return NextResponse.redirect(new URL("/admin", req.url));
+        }
+      }
+
       return NextResponse.next();
     } catch {
       // Token expired or invalid — try to refresh below
