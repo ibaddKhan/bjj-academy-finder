@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
+import { INDUSTRY_PRESET_OPTIONS, DEFAULT_INDUSTRY_SLUG } from "@/lib/industries";
 
 const STORAGE_KEY = "bjj_last_job_config";
 
@@ -56,6 +57,7 @@ export default function NewJobPage() {
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [savedConfig, setSavedConfig] = useState<SavedConfig | null>(null);
+  const [industry, setIndustry] = useState(DEFAULT_INDUSTRY_SLUG);
 
   useEffect(() => {
     try {
@@ -80,7 +82,7 @@ export default function NewJobPage() {
       const res = await fetch("/api/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...sheetInfo, columnMap }),
+        body: JSON.stringify({ ...sheetInfo, columnMap: { ...columnMap, industry } }),
       });
 
       const data = await res.json();
@@ -151,7 +153,24 @@ export default function NewJobPage() {
                 team&apos;s service account.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Industry</label>
+                <select
+                  value={industry}
+                  onChange={(e) => setIndustry(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {INDUSTRY_PRESET_OPTIONS.map((opt) => (
+                    <option key={opt.slug} value={opt.slug}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Determines the AI search keywords and prompts for this job.
+                </p>
+              </div>
               <SheetConnector
                 onConnected={handleConnected}
                 defaultUrl={savedConfig?.sheetUrl}

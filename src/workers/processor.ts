@@ -7,6 +7,7 @@ import { decrypt } from "@/lib/encrypt";
 import { emitJobEvent } from "@/lib/events";
 import { getTemplate, PipelineTemplate, TemplateResult, TemplateSettings } from "@/lib/templates/registry";
 import { enrichmentExists, upsertEnrichment } from "@/lib/enrichment-db";
+import { IndustryConfig, getIndustryPreset, DEFAULT_INDUSTRY_SLUG } from "@/lib/industries";
 // Register all templates (must be after registry import to avoid circular TDZ)
 import "@/lib/templates/gym-enrichment";
 
@@ -18,6 +19,7 @@ interface ColumnMap {
   doneValue: string;
   rowOffset?: number;
   rowLimit?: number;
+  industry?: string;
   outputCols: {
     foundGym?: number;
     instagram?: number;
@@ -36,6 +38,7 @@ interface EnrichmentColumnMap {
   doneValue: string;
   rowOffset?: number;
   rowLimit?: number;
+  industry?: string;
   sourceOutputCols: Record<string, number>;
 }
 
@@ -44,12 +47,32 @@ async function loadSettingsMap(teamId: string): Promise<Record<string, string>> 
   const rows = await db.teamSettings.findMany({ where: { teamId } });
   const map: Record<string, string> = {};
   for (const row of rows) {
-    map[row.key] = decrypt(row.value);
+    // industryConfig is a JSON blob — keep it raw (already decrypted) under __industryConfig
+    if (row.key === "industryConfig") {
+      map.__industryConfig = decrypt(row.value);
+    } else {
+      map[row.key] = decrypt(row.value);
+    }
   }
   return map;
 }
 
-function buildAgentSettings(map: Record<string, string>): AgentSettings {
+function loadIndustryConfig(map: Record<string, string>, jobIndustrySlug?: string): IndustryConfig {
+  const targetSlug = jobIndustrySlug || DEFAULT_INDUSTRY_SLUG;
+
+  // Check if team has a saved industry config matching the job's selected industry
+  if (map.__industryConfig) {
+    try {
+      const saved: IndustryConfig = JSON.parse(map.__industryConfig);
+      if (saved.slug === targetSlug) return saved;
+    } catch {}
+  }
+
+  // Fall back to built-in preset for the requested industry
+  return getIndustryPreset(targetSlug);
+}
+
+function buildAgentSettings(map: Record<string, string>, industryConfig: IndustryConfig): AgentSettings {
   return {
     openrouterKey: map.openrouterKey ?? "",
     openrouterModel: map.openrouterModel ?? "anthropic/claude-haiku-4-5",
@@ -57,10 +80,11 @@ function buildAgentSettings(map: Record<string, string>): AgentSettings {
     instagramKey: map.instagramKey ?? "",
     facebookKey: map.facebookKey ?? "",
     zenrowsKey: map.zenrowsKey ?? "",
+    industryConfig,
   };
 }
 
-function buildTemplateSettings(map: Record<string, string>): TemplateSettings {
+function buildTemplateSettings(map: Record<string, string>, industryConfig: IndustryConfig): TemplateSettings {
   return {
     openrouterKey: map.openrouterKey ?? "",
     enrichmentModel1: map.enrichmentModel1 ?? "anthropic/claude-haiku-4-5",
@@ -69,6 +93,7 @@ function buildTemplateSettings(map: Record<string, string>): TemplateSettings {
     facebookKey: map.facebookKey ?? "",
     zenrowsKey: map.zenrowsKey ?? "",
     scrapingantKey: map.scrapingantKey ?? "",
+    industryConfig,
   };
 }
 
@@ -380,6 +405,7 @@ async function processJob(bullJob: Job<JobPayload>) {
 
   const isTemplate = !!job.templateSlug;
   const columnMap = job.columnMap as unknown as ColumnMap | EnrichmentColumnMap;
+  const industryConfig = loadIndustryConfig(settingsMap, columnMap.industry);
 
   // Both ColumnMap and EnrichmentColumnMap share these top-level fields
   const filterCol = columnMap.filterCol;
@@ -470,7 +496,7 @@ async function processJob(bullJob: Job<JobPayload>) {
           },
           { id: row.id, rowIndex: row.rowIndex, rowData },
           teamId,
-          buildTemplateSettings(settingsMap),
+          buildTemplateSettings(settingsMap, industryConfig),
           template
         );
       } else {
@@ -483,7 +509,7 @@ async function processJob(bullJob: Job<JobPayload>) {
           },
           { id: row.id, rowIndex: row.rowIndex, rowData },
           teamId,
-          buildAgentSettings(settingsMap)
+          buildAgentSettings(settingsMap, industryConfig)
         );
       }
 

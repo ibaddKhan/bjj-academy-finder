@@ -42,7 +42,7 @@ Multi-team BJJ scraping platform built on Next.js 14. Supports two job types:
 ### Google Sheets Integration
 
 - Per-team Google service account (JSON key uploaded via Settings page, encrypted at rest)
-- `src/lib/sheets.ts` — `getSheetTabs()`, `getSheetHeaders()`, `getUnprocessedRows()`, `writeRowResult()`, `appendRow()`
+- `src/lib/sheets.ts` — `getSheetTabs()`, `getSheetHeaders()`, `getUnprocessedRows()`, `writeRowResult()`
 - All functions take `teamId` as first param; service account fetched from `TeamSettings`
 
 ### Core Job Flow
@@ -60,11 +60,11 @@ Waterfall with early exit: Instagram → Facebook → Smoothcomp. Writes results
 
 - `registry.ts` — `registerTemplate()`, `getTemplate()`, `listTemplates()`, auto-imports gym-enrichment
 - `gym-enrichment/index.ts` — 2-stage pipeline: Serper searches → Stage 1 AI (link discovery) → scrape (ScrapingAnt/Facebook/Smoothcomp) → Stage 2 AI (extraction)
-- Templates declare `inputFields`, `outputFields`, `sourceOutputFields`
+- Templates declare `inputFields`, `sourceOutputFields`
 
 ### Gym Enrichment Deduplication
 
-Before enriching a gym, the worker checks `event_enrichments` table (`name_id = input.gymName`). If found → skip and mark done in source sheet. After successful enrichment → upsert to `event_enrichments` with parsed location, social media, and all extracted fields.
+The `event_enrichments` DB table is the sole destination for enrichment results (no destination sheet). Before enriching a gym, the worker checks `event_enrichments` (`name_id = input.gymName`). If found → skip and mark done in source sheet. After successful enrichment → upsert to `event_enrichments` with parsed location, social media, and all extracted fields. Source sheet only receives status markers (done column + aiOwner/aiCoach).
 
 ### Worker (`src/workers/processor.ts`)
 
@@ -78,7 +78,7 @@ Before enriching a gym, the worker checks `event_enrichments` table (`name_id = 
 
 **Person Finder**: `{ nameCol, filterCol, filterValue, doneCol, doneValue, rowOffset, rowLimit, outputCols: { foundGym?, instagram?, facebook?, smoothcomp?, source?, reason? } }`
 
-**Gym Enrichment**: `{ inputCols: { gymName, location }, filterCol, filterValue, doneCol, doneValue, rowOffset, rowLimit, sourceOutputCols: { status?, aiOwner?, aiCoach? }, destOutputCols: { name?, website?, ... } }`
+**Gym Enrichment**: `{ inputCols: { gymName, location }, filterCol, filterValue, doneCol, doneValue, rowOffset, rowLimit, sourceOutputCols: { status?, aiOwner?, aiCoach? } }`
 
 ### External APIs
 
@@ -96,7 +96,7 @@ Before enriching a gym, the worker checks `event_enrichments` table (`name_id = 
 
 - **Worker runs in-process**: BullMQ worker starts in `layout.tsx`, singleton on `globalThis`. Single-instance only (Redis pub/sub needed to scale SSE).
 - **Encrypted storage**: All API keys (OpenRouter, Serper, RapidAPI, ZenRows, ScrapingAnt, Google SA JSON) stored AES-256-CBC encrypted in `TeamSettings`.
-- **event_enrichments table**: Existing PostgreSQL table mapped via Prisma `EventEnrichment` model (`@@map("event_enrichments")`). Dedup key: `name_id` column (= input gym name).
+- **event_enrichments as sole output**: Existing PostgreSQL table mapped via Prisma `EventEnrichment` model (`@@map("event_enrichments")`). Dedup key: `name_id` column (= input gym name). No destination sheet — all enrichment results stored here. Prisma schema still has optional `destSheetId`/`destTabName` fields on `Job` (always null for new jobs).
 
 ### Path Alias
 

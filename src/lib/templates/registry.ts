@@ -1,4 +1,7 @@
 import { SSEEvent } from "@/lib/events";
+import { IndustryConfig } from "@/lib/industries";
+
+export type { IndustryConfig };
 
 export interface TemplateInputField {
   key: string;
@@ -19,6 +22,7 @@ export interface TemplateSettings {
   facebookKey: string;
   zenrowsKey: string;
   scrapingantKey: string;
+  industryConfig: IndustryConfig;
 }
 
 export interface TemplateInput {

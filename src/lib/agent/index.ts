@@ -4,6 +4,7 @@ import { facebookScrape } from "./tools/facebook";
 import { smoothcompProfile } from "./tools/smoothcomp";
 import { emitJobEvent, SSEEvent } from "@/lib/events";
 import { db } from "@/lib/db";
+import { IndustryConfig, getIndustryPreset, DEFAULT_INDUSTRY_SLUG } from "@/lib/industries";
 
 export interface AgentSettings {
   openrouterKey: string;
@@ -12,6 +13,7 @@ export interface AgentSettings {
   instagramKey: string;
   facebookKey: string;
   zenrowsKey: string;
+  industryConfig: IndustryConfig;
 }
 
 // ─── Serper helpers ───────────────────────────────────────────────────────────
@@ -86,31 +88,25 @@ async function askAI(
   researchParts: string[],
   settings: AgentSettings
 ): Promise<AgentResult> {
-  const prompt = `You are a BJJ researcher. Based on the data gathered below, determine the current training gym/academy for: "${attendeeName}"
+  const industry = settings.industryConfig ?? getIndustryPreset(DEFAULT_INDUSTRY_SLUG);
+
+  const prompt = `${industry.personFinderSystemPrompt}
+
+Research data for: "${attendeeName}"
 
 ${researchParts.join("\n\n---\n\n")}
 
-## Verification Rules (STRICT — follow exactly)
-
-Before accepting ANY profile or gym, you MUST verify it belongs to "${attendeeName}":
-
-1. **Name match**: The profile's full name must match or be a clear variation of "${attendeeName}" (nicknames, abbreviations, middle names are OK — but a completely different person is NOT).
-2. **BJJ context**: The profile must show BJJ/jiu-jitsu/grappling/MMA content (bio, posts, competition records, team tags, etc.).
-3. **If uncertain**: Return null for that field. Do NOT guess. A missing field is better than a wrong one.
-4. **Common-name caution**: If the name is common (e.g. "John Smith") and the profile shows no BJJ connection, reject it and return null.
-5. **Gym name**: Only return a gym name if the profile content explicitly mentions it as the person's current team/academy. Do NOT infer from a gym's own page.
-
 ## Output Field Rules
-- "foundGym": the NAME of the gym/academy (not a URL) — only if confirmed current — or null
-- "instagram": the FULL Instagram profile URL of THIS PERSON (e.g. https://www.instagram.com/username) — NOT a gym page — null if not verified
-- "facebook": the FULL Facebook profile URL of THIS PERSON — NOT a gym page — null if not verified
+- "foundGym": the NAME of the ${industry.entityLabel} (not a URL) — only if confirmed current — or null
+- "instagram": the FULL Instagram profile URL of THIS PERSON (e.g. https://www.instagram.com/username) — NOT a business page — null if not verified
+- "facebook": the FULL Facebook profile URL of THIS PERSON — NOT a business page — null if not verified
 - "smoothcomp": the FULL Smoothcomp profile URL of THIS PERSON — null if not verified
-- "source": which source confirmed the gym ("instagram" | "facebook" | "smoothcomp" | null)
+- "source": which source confirmed the ${industry.entityLabel} ("instagram" | "facebook" | "smoothcomp" | null)
 - "reason": one sentence — what you verified, or why you couldn't confirm
 
 Respond with ONLY a valid JSON object (no markdown, no explanation outside it):
 {
-  "foundGym": "gym/academy name or null",
+  "foundGym": "${industry.entityLabel} name or null",
   "instagram": "https://www.instagram.com/username or null",
   "facebook": "https://www.facebook.com/profile or null",
   "smoothcomp": "https://smoothcomp.com/en/athlete/... or null",
@@ -171,8 +167,10 @@ export async function runAgent(
   const noop = { count: 99 };
   const researchParts: string[] = [];
 
+  const industry = settings.industryConfig ?? getIndustryPreset(DEFAULT_INDUSTRY_SLUG);
+
   // ── 1. INSTAGRAM ─────────────────────────────────────────────────────────
-  const instaQuery = `${attendeeName} BJJ instagram`;
+  const instaQuery = `${attendeeName} ${industry.searchKeyword} instagram`;
   emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "search", input: { query: instaQuery } });
   try {
     const instaSearch = await serperRaw(instaQuery, settings.serperKey);
@@ -202,7 +200,7 @@ export async function runAgent(
   }
 
   // ── 2. FACEBOOK ──────────────────────────────────────────────────────────
-  const fbQuery = `${attendeeName} BJJ fighter facebook`;
+  const fbQuery = `${attendeeName} ${industry.searchKeyword} facebook`;
   emit({ type: "tool_call", jobId, rowId, rowIndex, attendeeName, tool: "search", input: { query: fbQuery } });
   try {
     const fbSearch = await serperRaw(fbQuery, settings.serperKey);

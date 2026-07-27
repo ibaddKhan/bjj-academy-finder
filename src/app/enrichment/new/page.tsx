@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Building2 } from "lucide-react";
+import { INDUSTRY_PRESET_OPTIONS, DEFAULT_INDUSTRY_SLUG } from "@/lib/industries";
 
 interface SheetInfo {
   sheetUrl: string;
@@ -32,6 +33,7 @@ export default function EnrichmentNewPage() {
   const [sourceSheet, setSourceSheet] = useState<SheetInfo | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
+  const [industry, setIndustry] = useState(DEFAULT_INDUSTRY_SLUG);
 
   async function handleLaunch(columnMap: object) {
     if (!sourceSheet) return;
@@ -47,7 +49,7 @@ export default function EnrichmentNewPage() {
           sheetId: sourceSheet.sheetId,
           tabId: sourceSheet.tabId,
           tabName: sourceSheet.tabName,
-          columnMap,
+          columnMap: { ...(columnMap as object), industry },
           templateSlug: GYM_TEMPLATE_SLUG,
         }),
       });
@@ -109,11 +111,28 @@ export default function EnrichmentNewPage() {
             <CardHeader>
               <CardTitle>Source Sheet</CardTitle>
               <CardDescription>
-                The sheet containing gym names and locations to enrich.
+                The sheet containing entity names and locations to enrich.
                 Must be shared with your team&apos;s service account.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Industry</label>
+                <select
+                  value={industry}
+                  onChange={(e) => setIndustry(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {INDUSTRY_PRESET_OPTIONS.map((opt) => (
+                    <option key={opt.slug} value={opt.slug}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Determines the AI search keywords and prompts for this job.
+                </p>
+              </div>
               <SheetConnector
                 onConnected={(info) => {
                   setSourceSheet(info);

@@ -85,6 +85,7 @@ async function runGymEnrichment(
     facebookKey,
     zenrowsKey,
     scrapingantKey,
+    industryConfig,
   } = settings;
 
   const model1 = enrichmentModel1 || "anthropic/claude-haiku-4-5";
@@ -107,7 +108,7 @@ async function runGymEnrichment(
   const serpResults: string[] = [];
 
   // Search 1: general
-  const q1 = `"${gymName}" BJJ academy ${location}`;
+  const q1 = `"${gymName}" ${industryConfig.searchKeyword} ${location}`;
   emit("search", "call", { query: q1 });
   try {
     const s1 = await serperSearch(q1, serperKey);
@@ -119,8 +120,8 @@ async function runGymEnrichment(
     serpResults.push(`Search 1 error.`);
   }
 
-  // Search 2: Smoothcomp
-  const q2 = `"${gymName}" BJJ Smoothcomp team`;
+  // Search 2: social/directory
+  const q2 = `"${gymName}" ${industryConfig.searchKeyword} Smoothcomp team`;
   emit("search", "call", { query: q2 });
   try {
     const s2 = await serperSearch(q2, serperKey);
@@ -139,7 +140,7 @@ async function runGymEnrichment(
   let stage1Result;
   try {
     const stage1Content = await callAI(
-      stage1Prompt(gymName, location, allSerpText),
+      stage1Prompt(gymName, location, allSerpText, industryConfig),
       model1,
       openrouterKey
     );
@@ -242,7 +243,7 @@ async function runGymEnrichment(
   let extracted;
   try {
     const stage2Content = await callAI(
-      stage2Prompt(gymName, location, combinedContent),
+      stage2Prompt(gymName, location, combinedContent, industryConfig),
       model2,
       openrouterKey
     );
