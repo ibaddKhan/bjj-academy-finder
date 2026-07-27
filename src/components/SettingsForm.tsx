@@ -12,7 +12,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Save, Eye, EyeOff, CheckCircle2, LinkIcon, Unlink } from "lucide-react";
+
+interface TeamMember {
+  id: string;
+  name: string;
+  username: string;
+  role: string;
+}
 
 interface SettingsData {
   serperKey: string;
@@ -68,6 +76,7 @@ export function SettingsForm() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
   const googleStatus = searchParams.get("google");
 
@@ -83,6 +92,11 @@ export function SettingsForm() {
           }
         }
       })
+      .catch(console.error);
+
+    fetch("/api/teams/members")
+      .then((r) => r.json())
+      .then((data) => setTeamMembers(data.members ?? []))
       .catch(console.error);
   }, []);
 
@@ -257,6 +271,33 @@ export function SettingsForm() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Team Members */}
+      {teamMembers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Team Members</CardTitle>
+            <CardDescription>
+              Everyone on your active team.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {teamMembers.map((m) => (
+                <div key={m.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div>
+                    <p className="text-sm font-medium">{m.name}</p>
+                    <p className="text-xs text-muted-foreground">@{m.username}</p>
+                  </div>
+                  <Badge variant={m.role === "super_admin" ? "default" : "secondary"}>
+                    {m.role}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 

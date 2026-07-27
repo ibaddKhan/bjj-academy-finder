@@ -9,6 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Loader2, Eye, EyeOff } from "lucide-react";
 
+interface Team {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 interface User {
   id: string;
   username: string;
@@ -20,18 +26,22 @@ interface User {
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState({ username: "", password: "", name: "", role: "member" });
+  const [form, setForm] = useState({ username: "", password: "", name: "", role: "member", teamId: "" });
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/admin/users")
-      .then((r) => r.json())
-      .then((d) => setUsers(d.users ?? []))
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch("/api/admin/users").then((r) => r.json()),
+      fetch("/api/admin/teams").then((r) => r.json()),
+    ]).then(([userData, teamData]) => {
+      setUsers(userData.users ?? []);
+      setTeams(teamData.teams ?? []);
+    }).finally(() => setLoading(false));
   }, []);
 
   async function handleCreate(e: React.FormEvent) {
@@ -42,12 +52,35 @@ export default function AdminUsersPage() {
       const res = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ username: form.username, password: form.password, name: form.name, role: form.role }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      setUsers((prev) => [{ ...data.user, teams: [] }, ...prev]);
-      setForm({ username: "", password: "", name: "", role: "member" });
+
+      const newUser = data.user;
+      let assignedTeam: Team | undefined;
+
+      // Assign to team if selected
+      if (form.teamId) {
+        const memberRes = await fetch(`/api/admin/teams/${form.teamId}/members`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: newUser.id }),
+        });
+        if (memberRes.ok) {
+          assignedTeam = teams.find((t) => t.id === form.teamId);
+        }
+      }
+
+      const userWithTeam: User = {
+        ...newUser,
+        teams: assignedTeam
+          ? [{ teamId: assignedTeam.id, team: assignedTeam }]
+          : [],
+      };
+
+      setUsers((prev) => [userWithTeam, ...prev]);
+      setForm({ username: "", password: "", name: "", role: "member", teamId: "" });
       setShowForm(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Create failed");
@@ -128,6 +161,19 @@ export default function AdminUsersPage() {
                     >
                       <option value="member">Member</option>
                       <option value="super_admin">Super Admin</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label>Assign to Team <span className="text-muted-foreground">(optional)</span></Label>
+                    <select
+                      value={form.teamId}
+                      onChange={(e) => setForm((f) => ({ ...f, teamId: e.target.value }))}
+                      className="w-full h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                    >
+                      <option value="">— No team —</option>
+                      {teams.map((t) => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
