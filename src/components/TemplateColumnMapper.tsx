@@ -30,12 +30,24 @@ const TEMPLATE_FIELDS: Record<string, typeof GYM_ENRICHMENT_FIELDS> = {
   gym_enrichment: GYM_ENRICHMENT_FIELDS,
 };
 
+interface EnrichmentColumnMap {
+  inputCols?: Record<string, number>;
+  filterCol?: number;
+  filterValue?: string;
+  doneCol?: number;
+  doneValue?: string;
+  rowOffset?: number;
+  rowLimit?: number;
+  sourceOutputCols?: Record<string, number>;
+}
+
 interface TemplateColumnMapperProps {
   templateSlug: string;
   sourceSheetId: string;
   sourceTabName: string;
   onLaunch: (columnMap: object) => void;
   isLaunching: boolean;
+  defaultValues?: EnrichmentColumnMap;
 }
 
 const SKIP = "__skip__";
@@ -46,6 +58,7 @@ export function TemplateColumnMapper({
   sourceTabName,
   onLaunch,
   isLaunching,
+  defaultValues,
 }: TemplateColumnMapperProps) {
   const fields = TEMPLATE_FIELDS[templateSlug];
   const [sourceHeaders, setSourceHeaders] = useState<string[]>([]);
@@ -72,6 +85,24 @@ export function TemplateColumnMapper({
       .then((r) => r.json())
       .then((data) => {
         setSourceHeaders(data.headers ?? []);
+        if (defaultValues) {
+          if (defaultValues.inputCols) {
+            const cols: Record<string, string> = {};
+            for (const [k, v] of Object.entries(defaultValues.inputCols)) cols[k] = String(v);
+            setInputCols(cols);
+          }
+          if (defaultValues.filterCol !== undefined) setFilterColIdx(String(defaultValues.filterCol));
+          if (defaultValues.filterValue !== undefined) setFilterValue(defaultValues.filterValue);
+          if (defaultValues.doneCol !== undefined) setDoneColIdx(String(defaultValues.doneCol));
+          if (defaultValues.doneValue !== undefined) setDoneValue(defaultValues.doneValue);
+          if (defaultValues.rowOffset !== undefined) setRowOffset(String(defaultValues.rowOffset));
+          if (defaultValues.rowLimit !== undefined) setRowLimit(String(defaultValues.rowLimit));
+          if (defaultValues.sourceOutputCols) {
+            const cols: Record<string, string> = {};
+            for (const [k, v] of Object.entries(defaultValues.sourceOutputCols)) cols[k] = String(v);
+            setSourceOutputCols(cols);
+          }
+        }
       })
       .catch(() => setError("Failed to load sheet headers"))
       .finally(() => setLoading(false));

@@ -15,8 +15,6 @@ import {
 import { CheckCircle2 } from "lucide-react";
 import { INDUSTRY_PRESET_OPTIONS, DEFAULT_INDUSTRY_SLUG } from "@/lib/industries";
 
-const STORAGE_KEY = "bjj_last_job_config";
-
 interface SheetInfo {
   sheetUrl: string;
   sheetId: string;
@@ -60,12 +58,10 @@ export default function NewJobPage() {
   const [industry, setIndustry] = useState(DEFAULT_INDUSTRY_SLUG);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setSavedConfig(JSON.parse(raw));
-    } catch {
-      // ignore corrupt storage
-    }
+    fetch("/api/settings/saved-config?key=lastJobConfig")
+      .then((r) => r.json())
+      .then((d) => { if (d.config) setSavedConfig(d.config); })
+      .catch(() => {});
   }, []);
 
   function handleConnected(info: SheetInfo) {
@@ -88,16 +84,15 @@ export default function NewJobPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create job");
 
-      const config: SavedConfig = {
-        sheetUrl: sheetInfo.sheetUrl,
-        tabName: sheetInfo.tabName,
-        columnMap,
-      };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-      } catch {
-        // ignore
-      }
+      // Save config server-side (team-scoped) — fire and forget
+      fetch("/api/settings/saved-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "lastJobConfig",
+          value: { sheetUrl: sheetInfo.sheetUrl, tabName: sheetInfo.tabName, columnMap },
+        }),
+      }).catch(() => {});
 
       router.push(`/jobs/${data.job.id}`);
     } catch (err) {

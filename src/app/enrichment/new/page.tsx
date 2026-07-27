@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { SheetConnector } from "@/components/SheetConnector";
@@ -23,6 +23,12 @@ interface SheetInfo {
   tabName: string;
 }
 
+interface SavedEnrichmentConfig {
+  sheetUrl: string;
+  tabName: string;
+  columnMap: object;
+}
+
 const STEPS = ["Source Sheet", "Map Columns", "Launch"];
 
 const GYM_TEMPLATE_SLUG = "gym_enrichment";
@@ -34,6 +40,14 @@ export default function EnrichmentNewPage() {
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [industry, setIndustry] = useState(DEFAULT_INDUSTRY_SLUG);
+  const [savedConfig, setSavedConfig] = useState<SavedEnrichmentConfig | null>(null);
+
+  useEffect(() => {
+    fetch("/api/settings/saved-config?key=lastEnrichmentConfig")
+      .then((r) => r.json())
+      .then((d) => { if (d.config) setSavedConfig(d.config); })
+      .catch(() => {});
+  }, []);
 
   async function handleLaunch(columnMap: object) {
     if (!sourceSheet) return;
@@ -56,6 +70,16 @@ export default function EnrichmentNewPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create job");
+
+      // Save config server-side (team-scoped) — fire and forget
+      fetch("/api/settings/saved-config", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "lastEnrichmentConfig",
+          value: { sheetUrl: sourceSheet.sheetUrl, tabName: sourceSheet.tabName, columnMap },
+        }),
+      }).catch(() => {});
 
       router.push(`/jobs/${data.job.id}`);
     } catch (err) {
@@ -138,6 +162,8 @@ export default function EnrichmentNewPage() {
                   setSourceSheet(info);
                   setStep(1);
                 }}
+                defaultUrl={savedConfig?.sheetUrl}
+                defaultTabName={savedConfig?.tabName}
               />
             </CardContent>
           </Card>
@@ -159,6 +185,11 @@ export default function EnrichmentNewPage() {
                 sourceTabName={sourceSheet.tabName}
                 onLaunch={handleLaunch}
                 isLaunching={isLaunching}
+                defaultValues={
+                  savedConfig?.tabName === sourceSheet.tabName
+                    ? (savedConfig.columnMap as object)
+                    : undefined
+                }
               />
               {launchError && (
                 <p className="mt-3 text-sm text-destructive">{launchError}</p>
