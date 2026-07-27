@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
   res.cookies.set("access_token", accessToken, {
     httpOnly: true,
     secure,
-    sameSite: "strict",
+    sameSite: "lax",
     maxAge: ACCESS_TOKEN_EXPIRY_SECONDS,
     path: "/",
   });
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
   res.cookies.set("refresh_token", refreshTokenValue, {
     httpOnly: true,
     secure,
-    sameSite: "strict",
+    sameSite: "lax",
     maxAge: REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
     path: "/",
   });
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
     {
       httpOnly: false,
       secure,
-      sameSite: "strict",
+      sameSite: "lax",
       maxAge: REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
       path: "/",
     }

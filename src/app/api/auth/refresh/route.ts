@@ -78,7 +78,7 @@ async function handleRefresh(
     res.cookies.set("access_token", newAccessToken, {
       httpOnly: true,
       secure,
-      sameSite: "strict",
+      sameSite: "lax",
       maxAge: ACCESS_TOKEN_EXPIRY_SECONDS,
       path: "/",
     });
@@ -93,7 +93,7 @@ async function handleRefresh(
       {
         httpOnly: false,
         secure,
-        sameSite: "strict",
+        sameSite: "lax",
         maxAge: REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
         path: "/",
       }
@@ -115,7 +115,7 @@ async function handleRefresh(
   res.cookies.set("access_token", newAccessToken, {
     httpOnly: true,
     secure,
-    sameSite: "strict",
+    sameSite: "lax",
     maxAge: ACCESS_TOKEN_EXPIRY_SECONDS,
     path: "/",
   });
@@ -131,7 +131,7 @@ async function handleRefresh(
     {
       httpOnly: false,
       secure,
-      sameSite: "strict",
+      sameSite: "lax",
       maxAge: REFRESH_TOKEN_EXPIRY_DAYS * 24 * 60 * 60,
       path: "/",
     }
