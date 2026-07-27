@@ -20,7 +20,16 @@ export async function GET(req: NextRequest) {
   const redirectUri = `${appUrl}/api/auth/google/callback`;
 
   // Encrypt state to prevent CSRF — contains teamId and userId
-  const state = encrypt(JSON.stringify({ teamId: user.teamId, userId: user.userId }));
+  let state: string;
+  try {
+    state = encrypt(JSON.stringify({ teamId: user.teamId, userId: user.userId }));
+  } catch (err) {
+    console.error("Google connect: encrypt failed:", err);
+    return NextResponse.json(
+      { error: "Server misconfiguration: ENCRYPTION_KEY not set or invalid" },
+      { status: 500 }
+    );
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,

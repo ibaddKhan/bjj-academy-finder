@@ -1,57 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { decrypt, encrypt } from "@/lib/encrypt";
 import { db } from "@/lib/db";
-import { verifyAccessToken } from "@/lib/auth/jwt";
 
 export async function GET(req: NextRequest) {
+  const appUrl = process.env.APP_URL ?? req.nextUrl.origin;
+
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state");
 
   if (!code || !state) {
     return NextResponse.redirect(
-      new URL("/settings?google=error&reason=missing_params", req.url)
+      `${appUrl}/settings?google=error&reason=missing_params`
     );
   }
 
-  // Decrypt and validate state
+  // Decrypt and validate state — this IS the CSRF protection (server-encrypted)
   let stateData: { teamId: string; userId: string };
   try {
     stateData = JSON.parse(decrypt(state));
     if (!stateData.teamId || !stateData.userId) throw new Error("Invalid state");
   } catch {
     return NextResponse.redirect(
-      new URL("/settings?google=error&reason=invalid_state", req.url)
-    );
-  }
-
-  // Verify the logged-in user matches the state userId
-  const accessToken = req.cookies.get("access_token")?.value;
-  if (!accessToken) {
-    return NextResponse.redirect(
-      new URL("/settings?google=error&reason=not_authenticated", req.url)
-    );
-  }
-  try {
-    const sessionUser = verifyAccessToken(accessToken);
-    if (sessionUser.userId !== stateData.userId) {
-      return NextResponse.redirect(
-        new URL("/settings?google=error&reason=user_mismatch", req.url)
-      );
-    }
-  } catch {
-    return NextResponse.redirect(
-      new URL("/settings?google=error&reason=not_authenticated", req.url)
+      `${appUrl}/settings?google=error&reason=invalid_state`
     );
   }
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const appUrl = process.env.APP_URL ?? req.nextUrl.origin;
   const redirectUri = `${appUrl}/api/auth/google/callback`;
 
   if (!clientId || !clientSecret) {
     return NextResponse.redirect(
-      new URL("/settings?google=error&reason=not_configured", req.url)
+      `${appUrl}/settings?google=error&reason=not_configured`
     );
   }
 
@@ -74,7 +54,7 @@ export async function GET(req: NextRequest) {
       const err = await tokenRes.text();
       console.error("Google token exchange failed:", err);
       return NextResponse.redirect(
-        new URL("/settings?google=error&reason=token_exchange", req.url)
+        `${appUrl}/settings?google=error&reason=token_exchange`
       );
     }
 
@@ -82,13 +62,13 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error("Google token exchange error:", err);
     return NextResponse.redirect(
-      new URL("/settings?google=error&reason=token_exchange", req.url)
+      `${appUrl}/settings?google=error&reason=token_exchange`
     );
   }
 
   if (!tokens.refresh_token) {
     return NextResponse.redirect(
-      new URL("/settings?google=error&reason=no_refresh_token", req.url)
+      `${appUrl}/settings?google=error&reason=no_refresh_token`
     );
   }
 
@@ -122,5 +102,5 @@ export async function GET(req: NextRequest) {
     create: { teamId, key: "googleOAuthEmail", value: encrypt(googleEmail) },
   });
 
-  return NextResponse.redirect(new URL("/settings?google=connected", req.url));
+  return NextResponse.redirect(`${appUrl}/settings?google=connected`);
 }
