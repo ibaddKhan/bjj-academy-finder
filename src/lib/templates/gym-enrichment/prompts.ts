@@ -74,8 +74,10 @@ Extract all available information and return a JSON object:
 Rules:
 - Extract ONLY information that is explicitly present in the scraped content
 - Do NOT invent or guess contact details
-- For email: look for mailto: links, contact forms mentions, or email addresses in text
-- For phone: look for tel: links or phone number patterns
+- PRIORITY: The Facebook page data is the most reliable source for email, phone, and address — always prefer Facebook data for these fields
+- For email: check Facebook "Email:" field first, then look for mailto: links or email addresses on the website
+- For phone: check Facebook "Phone:" field first, then look for tel: links or phone patterns on the website
+- For locations: check Facebook "Address:" field first, then look for structured address data on the website
 - For social_media: format as "facebook:https://facebook.com/page, instagram:https://instagram.com/handle"
 - For owners: look for "owner", "head instructor", "founder", "professor", "head coach" mentions
 - For coaches: look for "instructor", "coach", "professor", staff page listings

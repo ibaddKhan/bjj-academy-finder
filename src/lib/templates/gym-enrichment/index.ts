@@ -107,8 +107,12 @@ async function runGymEnrichment(
 
   const serpResults: string[] = [];
 
-  // Search 1: general (website, address, contact)
-  const q1 = `"${gymName}" ${industryConfig.searchKeyword} ${location}`;
+  // Add BJJ keyword only if not already in the gym name
+  const hasBjjInName = /bjj|jiu.?jitsu|grappling/i.test(gymName);
+  const bjjSuffix = hasBjjInName ? "" : ` ${industryConfig.searchKeyword}`;
+
+  // Search 1: general (website, contact)
+  const q1 = `"${gymName}"${bjjSuffix}`;
   emit("search", "call", { query: q1 });
   try {
     const s1 = await serperSearch(q1, serperKey);
@@ -120,8 +124,8 @@ async function runGymEnrichment(
     serpResults.push(`Search 1 error.`);
   }
 
-  // Search 2: social media (Facebook, Instagram)
-  const q2 = `"${gymName}" ${location} site:facebook.com OR site:instagram.com`;
+  // Search 2: social media
+  const q2 = `"${gymName}" Instagram OR Facebook`;
   emit("search", "call", { query: q2 });
   try {
     const s2 = await serperSearch(q2, serperKey);
@@ -133,8 +137,8 @@ async function runGymEnrichment(
     serpResults.push(`Search 2 error.`);
   }
 
-  // Search 3: Smoothcomp / competition directory
-  const q3 = `"${gymName}" site:smoothcomp.com team`;
+  // Search 3: Smoothcomp
+  const q3 = `"${gymName}" Smoothcomp`;
   emit("search", "call", { query: q3 });
   try {
     const s3 = await serperSearch(q3, serperKey);
@@ -144,19 +148,6 @@ async function runGymEnrichment(
   } catch (err) {
     emit("search", "result", `Error: ${err instanceof Error ? err.message : String(err)}`);
     serpResults.push(`Search 3 error.`);
-  }
-
-  // Search 4: contact info, reviews, maps
-  const q4 = `"${gymName}" ${location} email phone address`;
-  emit("search", "call", { query: q4 });
-  try {
-    const s4 = await serperSearch(q4, serperKey);
-    const t4 = formatSerperResults(s4);
-    emit("search", "result", t4);
-    serpResults.push(`Search 4 (${q4}):\n${t4}`);
-  } catch (err) {
-    emit("search", "result", `Error: ${err instanceof Error ? err.message : String(err)}`);
-    serpResults.push(`Search 4 error.`);
   }
 
   const allSerpText = serpResults.join("\n\n---\n\n");
@@ -211,6 +202,21 @@ async function runGymEnrichment(
   // ── Stage 2: Scraping ─────────────────────────────────────────────────────
 
   const scrapedParts: string[] = [];
+  let facebookData = "";
+
+  // Scrape Facebook FIRST — this is the primary source for phone/email/address
+  if (stage1Result.facebookUrl) {
+    emit("scrape_facebook", "call", { url: stage1Result.facebookUrl });
+    try {
+      const content = await facebookPageScrape(stage1Result.facebookUrl, facebookKey);
+      emit("scrape_facebook", "result", content.slice(0, 500));
+      facebookData = content;
+      scrapedParts.push(`FACEBOOK PAGE (${stage1Result.facebookUrl}) — PRIMARY SOURCE FOR CONTACT INFO:\n${content}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      emit("scrape_facebook", "result", `Error: ${msg}`);
+    }
+  }
 
   // Scrape website
   if (stage1Result.websiteUrl) {
@@ -222,19 +228,6 @@ async function runGymEnrichment(
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       emit("scrape_website", "result", `Error: ${msg}`);
-    }
-  }
-
-  // Scrape Facebook
-  if (stage1Result.facebookUrl) {
-    emit("scrape_facebook", "call", { url: stage1Result.facebookUrl });
-    try {
-      const content = await facebookPageScrape(stage1Result.facebookUrl, facebookKey);
-      emit("scrape_facebook", "result", content.slice(0, 500));
-      scrapedParts.push(`FACEBOOK (${stage1Result.facebookUrl}):\n${content}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      emit("scrape_facebook", "result", `Error: ${msg}`);
     }
   }
 
