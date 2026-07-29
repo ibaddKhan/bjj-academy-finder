@@ -189,25 +189,40 @@ async function runGymEnrichment(
   // Scrape website
   if (stage1Result.websiteUrl) {
     emit("scrape_website", "call", { url: stage1Result.websiteUrl });
-    const content = await scrapeWebsite(stage1Result.websiteUrl, scrapingantKey);
-    emit("scrape_website", "result", content.slice(0, 500));
-    scrapedParts.push(`WEBSITE (${stage1Result.websiteUrl}):\n${content}`);
+    try {
+      const content = await scrapeWebsite(stage1Result.websiteUrl, scrapingantKey);
+      emit("scrape_website", "result", content.slice(0, 500));
+      scrapedParts.push(`WEBSITE (${stage1Result.websiteUrl}):\n${content}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      emit("scrape_website", "result", `Error: ${msg}`);
+    }
   }
 
   // Scrape Facebook
   if (stage1Result.facebookUrl) {
     emit("scrape_facebook", "call", { url: stage1Result.facebookUrl });
-    const content = await facebookPageScrape(stage1Result.facebookUrl, facebookKey);
-    emit("scrape_facebook", "result", content.slice(0, 500));
-    scrapedParts.push(`FACEBOOK (${stage1Result.facebookUrl}):\n${content}`);
+    try {
+      const content = await facebookPageScrape(stage1Result.facebookUrl, facebookKey);
+      emit("scrape_facebook", "result", content.slice(0, 500));
+      scrapedParts.push(`FACEBOOK (${stage1Result.facebookUrl}):\n${content}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      emit("scrape_facebook", "result", `Error: ${msg}`);
+    }
   }
 
   // Scrape Smoothcomp team page
   if (stage1Result.smoothcompUrl) {
     emit("scrape_smoothcomp", "call", { url: stage1Result.smoothcompUrl });
-    const content = await smoothcompTeamScrape(stage1Result.smoothcompUrl, zenrowsKey);
-    emit("scrape_smoothcomp", "result", content.slice(0, 500));
-    scrapedParts.push(`SMOOTHCOMP (${stage1Result.smoothcompUrl}):\n${content}`);
+    try {
+      const content = await smoothcompTeamScrape(stage1Result.smoothcompUrl, zenrowsKey);
+      emit("scrape_smoothcomp", "result", content.slice(0, 500));
+      scrapedParts.push(`SMOOTHCOMP (${stage1Result.smoothcompUrl}):\n${content}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      emit("scrape_smoothcomp", "result", `Error: ${msg}`);
+    }
   }
 
   if (scrapedParts.length === 0) {

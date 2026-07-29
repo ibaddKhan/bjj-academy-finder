@@ -1,7 +1,7 @@
 import { Worker, Job } from "bullmq";
 import { db } from "@/lib/db";
 import { getRedisConnection, JOB_QUEUE_NAME, JobPayload } from "@/lib/queue";
-import { getUnprocessedRows, writeRowResult } from "@/lib/sheets";
+import { getUnprocessedRows, writeRowResult, appendRow } from "@/lib/sheets";
 import { runAgent, AgentSettings } from "@/lib/agent";
 import { decrypt } from "@/lib/encrypt";
 import { emitJobEvent } from "@/lib/events";
@@ -40,6 +40,7 @@ interface EnrichmentColumnMap {
   rowLimit?: number;
   industry?: string;
   sourceOutputCols: Record<string, number>;
+  destOutputCols?: Record<string, number>;
 }
 
 // Load and decrypt all settings for a team in one DB query
@@ -258,6 +259,8 @@ async function processTemplateRow(
     sheetId: string;
     tabName: string;
     columnMap: EnrichmentColumnMap;
+    destSheetId?: string | null;
+    destTabName?: string | null;
   },
   rowRecord: { id: string; rowIndex: number; rowData: string[] },
   teamId: string,
@@ -351,6 +354,23 @@ async function processTemplateRow(
       } catch (dbErr) {
         console.error("Failed to upsert event_enrichments:", dbErr);
         // Non-fatal — don't fail the row over a DB write issue
+      }
+    }
+
+    // ── Write to destination sheet (optional) ─────────────────────────────────
+    const { destSheetId, destTabName } = jobRecord;
+    const destOutputCols = columnMap.destOutputCols;
+    if (destSheetId && destTabName && destOutputCols && Object.keys(destOutputCols).length > 0 && result.data) {
+      try {
+        const maxCol = Math.max(...Object.values(destOutputCols));
+        const row = new Array(maxCol + 1).fill("");
+        for (const [key, colIdx] of Object.entries(destOutputCols)) {
+          row[colIdx] = String(result.data[key] ?? "");
+        }
+        await appendRow(teamId, destSheetId, destTabName, row);
+      } catch (destErr) {
+        console.error("Failed to write to destination sheet:", destErr);
+        // Non-fatal — don't fail the row over a dest sheet write issue
       }
     }
 
@@ -493,6 +513,8 @@ async function processJob(bullJob: Job<JobPayload>) {
             sheetId: job.sheetId,
             tabName: job.tabName,
             columnMap: columnMap as EnrichmentColumnMap,
+            destSheetId: job.destSheetId,
+            destTabName: job.destTabName,
           },
           { id: row.id, rowIndex: row.rowIndex, rowData },
           teamId,
