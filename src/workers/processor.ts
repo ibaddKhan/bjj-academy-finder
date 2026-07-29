@@ -149,7 +149,14 @@ function parseLocations(locations: string | null | undefined): {
 async function writeEventEnrichment(gymName: string, result: TemplateResult) {
   if (!result.data) return;
   const d = result.data;
-  const { facebook, instagram } = parseSocialMedia(d.social_media as string | null);
+  // Try new separate fields first, fall back to parsing social_media for backward compat
+  let facebook = (d.facebook_url as string | null) ?? null;
+  let instagram = (d.instagram_url as string | null) ?? null;
+  if (!facebook && !instagram && d.social_media) {
+    const parsed = parseSocialMedia(d.social_media as string | null);
+    facebook = parsed.facebook;
+    instagram = parsed.instagram;
+  }
   const locationParsed = parseLocations(d.locations as string | null);
 
   await upsertEnrichment(gymName, {
@@ -370,16 +377,22 @@ async function processTemplateRow(
       try {
         const maxCol = Math.max(...Object.values(destOutputCols));
         const row = new Array(maxCol + 1).fill("");
-        // Parse social_media into separate URLs for dest sheet
-        const socialParsed = parseSocialMedia(result.data.social_media);
+        // Get facebook/instagram from new separate fields, fall back to parsing social_media
+        let destFb = (result.data.facebook_url as string | null) ?? null;
+        let destIg = (result.data.instagram_url as string | null) ?? null;
+        if (!destFb && !destIg && result.data.social_media) {
+          const socialParsed = parseSocialMedia(result.data.social_media as string);
+          destFb = socialParsed.facebook;
+          destIg = socialParsed.instagram;
+        }
         for (const [key, colIdx] of Object.entries(destOutputCols)) {
           let val = "";
           if (key === "inputGymName") {
             val = String(input.gymName ?? "");
           } else if (key === "facebook_url") {
-            val = socialParsed.facebook ?? "";
+            val = destFb ?? "";
           } else if (key === "instagram_url") {
-            val = socialParsed.instagram ?? "";
+            val = destIg ?? "";
           } else {
             val = String(result.data[key] ?? "");
           }

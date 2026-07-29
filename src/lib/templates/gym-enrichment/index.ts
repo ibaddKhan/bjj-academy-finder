@@ -113,7 +113,7 @@ async function runGymEnrichment(
   const bjjSuffix = hasBjjInName ? "" : ` ${industryConfig.searchKeyword}`;
 
   // Search 1: general (website, contact)
-  const q1 = `"${gymName}"${bjjSuffix}`;
+  const q1 = `${gymName}${bjjSuffix}`;
   emit("search", "call", { query: q1 });
   try {
     const s1 = await serperSearch(q1, serperKey);
@@ -127,7 +127,7 @@ async function runGymEnrichment(
   }
 
   // Search 2: social media
-  const q2 = `"${gymName}" Instagram OR Facebook`;
+  const q2 = `${gymName} Instagram OR Facebook`;
   emit("search", "call", { query: q2 });
   try {
     const s2 = await serperSearch(q2, serperKey);
@@ -141,7 +141,7 @@ async function runGymEnrichment(
   }
 
   // Search 3: Smoothcomp
-  const q3 = `"${gymName}" Smoothcomp`;
+  const q3 = `${gymName} Smoothcomp`;
   emit("search", "call", { query: q3 });
   try {
     const s3 = await serperSearch(q3, serperKey);
@@ -361,7 +361,8 @@ registerTemplate({
     { key: "owners", label: "Owners" },
     { key: "coaches", label: "Coaches" },
     { key: "industry", label: "Industry" },
-    { key: "social_media", label: "Social Media" },
+    { key: "facebook_url", label: "Facebook URL" },
+    { key: "instagram_url", label: "Instagram URL" },
     { key: "detected_software", label: "Software Detected" },
     { key: "confidence_score", label: "Confidence Score" },
     { key: "status", label: "Status" },

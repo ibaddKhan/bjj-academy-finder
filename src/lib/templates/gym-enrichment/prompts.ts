@@ -63,12 +63,13 @@ Extract all available information and return a JSON object:
   "owners": "owner/principal name(s) comma-separated or null",
   "coaches": "staff/team member name(s) comma-separated or null",
   "industry": "${industry.label} or null",
-  "social_media": "the GYM's official social accounts — format: facebook:url, instagram:url (comma-separated) or null",
+  "facebook_url": "the GYM's official Facebook page URL or null",
+  "instagram_url": "the GYM's official Instagram page URL or null",
   "detected_software": "name of booking/management software if found, or null",
   "confidence_score": "0-100 as string",
   "reason": "brief summary of what was found and confidence level",
   "smoothcomp": "https://smoothcomp.com/en/team/... or null",
-  "owner_instagram": "the OWNER's personal Instagram (NOT the gym's Instagram) or null"
+  "owner_instagram": "the OWNER's PERSONAL Instagram URL (a different account from the gym's Instagram) or null"
 }
 
 Rules:
@@ -78,8 +79,14 @@ Rules:
 - For email: check Facebook "Email:" field first, then look for mailto: links or email addresses on the website
 - For phone: check Facebook "Phone:" field first, then look for tel: links or phone patterns on the website
 - For locations: check Facebook "Address:" field first, then look for structured address data on the website
-- For social_media: this is the GYM's official accounts, NOT the owner's personal accounts. Format as "facebook:https://facebook.com/page, instagram:https://instagram.com/handle"
-- For owner_instagram: ONLY the owner's personal Instagram, NOT the gym's Instagram page. If you only found the gym's Instagram, put it in social_media instead
+
+CRITICAL — Instagram field rules (read carefully):
+- "instagram_url": This is the GYM's official Instagram account (e.g. instagram.com/gymname). If you find ANY Instagram account for the gym/academy, it goes HERE.
+- "owner_instagram": This is ONLY for the owner's SEPARATE PERSONAL Instagram account (e.g. instagram.com/johndoe). This must be a DIFFERENT account from the gym's Instagram.
+- If you only found ONE Instagram account, it is almost certainly the gym's account — put it in "instagram_url" and set "owner_instagram" to null.
+- NEVER put the gym's Instagram in "owner_instagram". When in doubt, put it in "instagram_url".
+- "facebook_url": The gym's official Facebook page URL
+
 - For owners: look for "owner", "head instructor", "founder", "professor", "head coach" mentions
 - For coaches: look for "instructor", "coach", "professor", staff page listings
 - confidence_score reflects how much confirmed data was found (0=none, 100=full profile)

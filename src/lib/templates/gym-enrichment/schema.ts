@@ -27,6 +27,8 @@ export interface EnrichmentResult {
   coaches: string | null;
   industry: string | null;
   social_media: string | null;
+  facebook_url: string | null;
+  instagram_url: string | null;
   detected_software: string | null;
   confidence_score: string | null;
   reason: string;
@@ -79,6 +81,8 @@ export function parseEnrichmentResult(
     coaches: null,
     industry: null,
     social_media: null,
+    facebook_url: null,
+    instagram_url: null,
     detected_software: null,
     confidence_score: null,
     reason: "Could not parse response",
@@ -100,6 +104,8 @@ export function parseEnrichmentResult(
       coaches: p.coaches ?? null,
       industry: p.industry ?? null,
       social_media: p.social_media ?? null,
+      facebook_url: p.facebook_url ?? null,
+      instagram_url: p.instagram_url ?? null,
       detected_software: p.detected_software ?? null,
       confidence_score: p.confidence_score ?? null,
       reason: p.reason ?? "No reason provided",
