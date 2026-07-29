@@ -365,7 +365,11 @@ async function processTemplateRow(
         const maxCol = Math.max(...Object.values(destOutputCols));
         const row = new Array(maxCol + 1).fill("");
         for (const [key, colIdx] of Object.entries(destOutputCols)) {
-          row[colIdx] = String(result.data[key] ?? "");
+          if (key === "inputGymName") {
+            row[colIdx] = String(input.gymName ?? "");
+          } else {
+            row[colIdx] = String(result.data[key] ?? "");
+          }
         }
         await appendRow(teamId, destSheetId, destTabName, row);
       } catch (destErr) {

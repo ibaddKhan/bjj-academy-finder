@@ -45,6 +45,7 @@ const STEPS = ["Source Sheet", "Map Columns", "Launch"];
 const GYM_TEMPLATE_SLUG = "gym_enrichment";
 
 const DEST_OUTPUT_FIELDS = [
+  { key: "inputGymName", label: "Input Gym Name (lookup key)" },
   { key: "name", label: "Gym Name" },
   { key: "website", label: "Website" },
   { key: "email", label: "Email" },
