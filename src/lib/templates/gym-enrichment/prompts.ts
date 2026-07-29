@@ -63,12 +63,12 @@ Extract all available information and return a JSON object:
   "owners": "owner/principal name(s) comma-separated or null",
   "coaches": "staff/team member name(s) comma-separated or null",
   "industry": "${industry.label} or null",
-  "social_media": "facebook:url, instagram:url (comma-separated) or null",
+  "social_media": "the GYM's official social accounts — format: facebook:url, instagram:url (comma-separated) or null",
   "detected_software": "name of booking/management software if found, or null",
   "confidence_score": "0-100 as string",
   "reason": "brief summary of what was found and confidence level",
   "smoothcomp": "https://smoothcomp.com/en/team/... or null",
-  "owner_instagram": "https://instagram.com/owner_username or null"
+  "owner_instagram": "the OWNER's personal Instagram (NOT the gym's Instagram) or null"
 }
 
 Rules:
@@ -78,7 +78,8 @@ Rules:
 - For email: check Facebook "Email:" field first, then look for mailto: links or email addresses on the website
 - For phone: check Facebook "Phone:" field first, then look for tel: links or phone patterns on the website
 - For locations: check Facebook "Address:" field first, then look for structured address data on the website
-- For social_media: format as "facebook:https://facebook.com/page, instagram:https://instagram.com/handle"
+- For social_media: this is the GYM's official accounts, NOT the owner's personal accounts. Format as "facebook:https://facebook.com/page, instagram:https://instagram.com/handle"
+- For owner_instagram: ONLY the owner's personal Instagram, NOT the gym's Instagram page. If you only found the gym's Instagram, put it in social_media instead
 - For owners: look for "owner", "head instructor", "founder", "professor", "head coach" mentions
 - For coaches: look for "instructor", "coach", "professor", staff page listings
 - confidence_score reflects how much confirmed data was found (0=none, 100=full profile)

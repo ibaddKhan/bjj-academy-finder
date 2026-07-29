@@ -105,12 +105,18 @@ function parseSocialMedia(socialMedia: string | null | undefined): {
   instagram: string | null;
 } {
   if (!socialMedia) return { facebook: null, instagram: null };
-  const urls = socialMedia.split(/[\s,|;]+/).map((s) => s.trim()).filter(Boolean);
+  const parts = socialMedia.split(/[\s,|;]+/).map((s) => s.trim()).filter(Boolean);
   let facebook: string | null = null;
   let instagram: string | null = null;
-  for (const url of urls) {
-    if (!facebook && /facebook\.com/i.test(url)) facebook = url;
-    if (!instagram && /instagram\.com/i.test(url)) instagram = url;
+  for (const part of parts) {
+    // Strip prefixes like "facebook:", "instagram:" and extract the URL
+    const cleaned = part.replace(/^(?:facebook|instagram|fb|ig)\s*:\s*/i, "");
+    if (!facebook && /facebook\.com/i.test(cleaned)) {
+      facebook = cleaned.startsWith("http") ? cleaned : `https://${cleaned}`;
+    }
+    if (!instagram && /instagram\.com/i.test(cleaned)) {
+      instagram = cleaned.startsWith("http") ? cleaned : `https://${cleaned}`;
+    }
   }
   return { facebook, instagram };
 }
@@ -367,15 +373,21 @@ async function processTemplateRow(
         // Parse social_media into separate URLs for dest sheet
         const socialParsed = parseSocialMedia(result.data.social_media);
         for (const [key, colIdx] of Object.entries(destOutputCols)) {
+          let val = "";
           if (key === "inputGymName") {
-            row[colIdx] = String(input.gymName ?? "");
+            val = String(input.gymName ?? "");
           } else if (key === "facebook_url") {
-            row[colIdx] = socialParsed.facebook ?? "";
+            val = socialParsed.facebook ?? "";
           } else if (key === "instagram_url") {
-            row[colIdx] = socialParsed.instagram ?? "";
+            val = socialParsed.instagram ?? "";
           } else {
-            row[colIdx] = String(result.data[key] ?? "");
+            val = String(result.data[key] ?? "");
           }
+          // Prefix with ' to prevent Google Sheets treating +/= as formula
+          if (val && /^[+=@-]/.test(val)) {
+            val = `'${val}`;
+          }
+          row[colIdx] = val;
         }
         await appendRow(teamId, destSheetId, destTabName, row);
       } catch (destErr) {
@@ -492,20 +504,18 @@ async function processJob(bullJob: Job<JobPayload>) {
 
   for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
     const row = rows[rowIdx];
-    // Check if job was stopped — every 10 rows to reduce DB queries
-    if (rowIdx % 10 === 0) {
-      const currentStatus = await db.job.findUnique({
-        where: { id: jobId },
-        select: { status: true },
+    // Check if job was stopped — before every row
+    const currentStatus = await db.job.findUnique({
+      where: { id: jobId },
+      select: { status: true },
+    });
+    if (currentStatus?.status === "paused") {
+      await db.jobRow.updateMany({
+        where: { jobId, status: "running" },
+        data: { status: "pending" },
       });
-      if (currentStatus?.status === "paused") {
-        await db.jobRow.updateMany({
-          where: { jobId, status: "running" },
-          data: { status: "pending" },
-        });
-        emitJobEvent({ type: "job_stopped", jobId, timestamp: Date.now() });
-        return;
-      }
+      emitJobEvent({ type: "job_stopped", jobId, timestamp: Date.now() });
+      return;
     }
 
     const rowData = row.rowData as unknown as string[];
