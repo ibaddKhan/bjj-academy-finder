@@ -61,6 +61,7 @@ export default async function JobDetailPage({
     totalRows: job.totalRows,
     doneRows: job.doneRows,
     errorRows: job.errorRows,
+    error: job.error ?? null,
     tabName: job.tabName,
     sheetUrl: job.sheetUrl,
     templateSlug: job.templateSlug ?? null,

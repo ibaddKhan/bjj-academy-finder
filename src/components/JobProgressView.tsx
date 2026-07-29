@@ -35,6 +35,7 @@ interface JobState {
   totalRows: number;
   doneRows: number;
   errorRows: number;
+  error?: string | null;
   tabName: string;
   sheetUrl: string;
   startedAt: string | null;
@@ -247,7 +248,7 @@ export function JobProgressView({
         break;
 
       case "job_failed":
-        setJob((prev) => ({ ...prev, status: "failed", completedAt: new Date().toISOString() }));
+        setJob((prev) => ({ ...prev, status: "failed", error: event.error ?? "Unknown error", completedAt: new Date().toISOString() }));
         eventSourceRef.current?.close();
         if (timerRef.current) clearInterval(timerRef.current);
         break;
@@ -459,6 +460,14 @@ export function JobProgressView({
         </div>
 
         <Progress value={progressPct} className="h-2" />
+
+        {/* Job-level error */}
+        {job.status === "failed" && job.error && (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <p className="font-medium">Job failed</p>
+            <p className="mt-1 text-destructive/80">{job.error}</p>
+          </div>
+        )}
 
         {/* Resume stopped job */}
         {job.status === "paused" && (

@@ -612,7 +612,7 @@ export function startWorker() {
       await db.job
         .update({
           where: { id: job.data.jobId },
-          data: { status: "failed" },
+          data: { status: "failed", error: err.message },
         })
         .catch(console.error);
 

@@ -115,6 +115,7 @@ model Job {
   totalRows    Int       @default(0)
   doneRows     Int       @default(0)
   errorRows    Int       @default(0)
+  error        String?   @db.Text
   createdAt    DateTime  @default(now())
   startedAt    DateTime?
   completedAt  DateTime?
