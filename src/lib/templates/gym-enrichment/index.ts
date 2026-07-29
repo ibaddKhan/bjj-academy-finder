@@ -106,6 +106,7 @@ async function runGymEnrichment(
   // ── Stage 1: Discovery ────────────────────────────────────────────────────
 
   const serpResults: string[] = [];
+  const allSearchLinks: string[] = []; // Collect all links for fallback URL extraction
 
   // Add BJJ keyword only if not already in the gym name
   const hasBjjInName = /bjj|jiu.?jitsu|grappling/i.test(gymName);
@@ -116,6 +117,7 @@ async function runGymEnrichment(
   emit("search", "call", { query: q1 });
   try {
     const s1 = await serperSearch(q1, serperKey);
+    for (const r of s1.organic ?? []) allSearchLinks.push(r.link);
     const t1 = formatSerperResults(s1);
     emit("search", "result", t1);
     serpResults.push(`Search 1 (${q1}):\n${t1}`);
@@ -129,6 +131,7 @@ async function runGymEnrichment(
   emit("search", "call", { query: q2 });
   try {
     const s2 = await serperSearch(q2, serperKey);
+    for (const r of s2.organic ?? []) allSearchLinks.push(r.link);
     const t2 = formatSerperResults(s2);
     emit("search", "result", t2);
     serpResults.push(`Search 2 (${q2}):\n${t2}`);
@@ -142,6 +145,7 @@ async function runGymEnrichment(
   emit("search", "call", { query: q3 });
   try {
     const s3 = await serperSearch(q3, serperKey);
+    for (const r of s3.organic ?? []) allSearchLinks.push(r.link);
     const t3 = formatSerperResults(s3);
     emit("search", "result", t3);
     serpResults.push(`Search 3 (${q3}):\n${t3}`);
@@ -149,6 +153,11 @@ async function runGymEnrichment(
     emit("search", "result", `Error: ${err instanceof Error ? err.message : String(err)}`);
     serpResults.push(`Search 3 error.`);
   }
+
+  // Extract social URLs directly from search results as fallback
+  const fallbackFacebookUrl = allSearchLinks.find((l) => /facebook\.com\//i.test(l) && !/\/login/i.test(l)) ?? null;
+  const fallbackInstagramUrl = allSearchLinks.find((l) => /instagram\.com\//i.test(l) && !/\/accounts\//i.test(l)) ?? null;
+  const fallbackSmoothcompUrl = allSearchLinks.find((l) => /smoothcomp\.com\/en\/team\//i.test(l)) ?? null;
 
   const allSerpText = serpResults.join("\n\n---\n\n");
 
@@ -163,6 +172,21 @@ async function runGymEnrichment(
     );
     emit("ai_stage1", "result", stage1Content);
     stage1Result = parseStage1Result(stage1Content);
+
+    // Fill in missing URLs from direct search result extraction
+    if (!stage1Result.facebookUrl && fallbackFacebookUrl) {
+      stage1Result.facebookUrl = fallbackFacebookUrl;
+    }
+    if (!stage1Result.instagramUrl && fallbackInstagramUrl) {
+      stage1Result.instagramUrl = fallbackInstagramUrl;
+    }
+    if (!stage1Result.smoothcompUrl && fallbackSmoothcompUrl) {
+      stage1Result.smoothcompUrl = fallbackSmoothcompUrl;
+    }
+    // If AI said not_found but we have fallback URLs, override to found
+    if (stage1Result.status === "not_found" && (stage1Result.facebookUrl || stage1Result.websiteUrl)) {
+      stage1Result.status = "found";
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     emit("ai_stage1", "result", `Error: ${msg}`);
