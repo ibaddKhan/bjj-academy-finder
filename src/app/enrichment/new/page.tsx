@@ -271,39 +271,8 @@ export default function EnrichmentNewPage() {
         {/* Step 1: Map Columns */}
         {step === 1 && sourceSheet && (
           <>
-            <Card>
-              <CardHeader>
-                <CardTitle>Map Columns</CardTitle>
-                <CardDescription>
-                  Map source sheet columns for input and status tracking.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <TemplateColumnMapper
-                  templateSlug={GYM_TEMPLATE_SLUG}
-                  sourceSheetId={sourceSheet.sheetId}
-                  sourceTabName={sourceSheet.tabName}
-                  onLaunch={handleLaunch}
-                  isLaunching={isLaunching}
-                  defaultValues={
-                    savedConfig?.tabName === sourceSheet.tabName
-                      ? (savedConfig.columnMap as object)
-                      : undefined
-                  }
-                />
-                {launchError && (
-                  <p className="mt-3 text-sm text-destructive">{launchError}</p>
-                )}
-                <div className="mt-4">
-                  <Button variant="ghost" size="sm" onClick={() => setStep(0)}>
-                    ← Back
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Destination Sheet (optional) */}
-            <Card className="mt-4">
+            {/* Destination Sheet (optional) — shown before column mapper so it's visible */}
+            <Card className="mb-4">
               <CardHeader>
                 <CardTitle className="flex items-center gap-3">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -402,6 +371,37 @@ export default function EnrichmentNewPage() {
                   )}
                 </CardContent>
               )}
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Map Columns</CardTitle>
+                <CardDescription>
+                  Map source sheet columns for input and status tracking.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <TemplateColumnMapper
+                  templateSlug={GYM_TEMPLATE_SLUG}
+                  sourceSheetId={sourceSheet.sheetId}
+                  sourceTabName={sourceSheet.tabName}
+                  onLaunch={handleLaunch}
+                  isLaunching={isLaunching}
+                  defaultValues={
+                    savedConfig?.tabName === sourceSheet.tabName
+                      ? (savedConfig.columnMap as object)
+                      : undefined
+                  }
+                />
+                {launchError && (
+                  <p className="mt-3 text-sm text-destructive">{launchError}</p>
+                )}
+                <div className="mt-4">
+                  <Button variant="ghost" size="sm" onClick={() => setStep(0)}>
+                    ← Back
+                  </Button>
+                </div>
+              </CardContent>
             </Card>
           </>
         )}
