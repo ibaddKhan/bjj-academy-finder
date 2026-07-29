@@ -364,9 +364,15 @@ async function processTemplateRow(
       try {
         const maxCol = Math.max(...Object.values(destOutputCols));
         const row = new Array(maxCol + 1).fill("");
+        // Parse social_media into separate URLs for dest sheet
+        const socialParsed = parseSocialMedia(result.data.social_media);
         for (const [key, colIdx] of Object.entries(destOutputCols)) {
           if (key === "inputGymName") {
             row[colIdx] = String(input.gymName ?? "");
+          } else if (key === "facebook_url") {
+            row[colIdx] = socialParsed.facebook ?? "";
+          } else if (key === "instagram_url") {
+            row[colIdx] = socialParsed.instagram ?? "";
           } else {
             row[colIdx] = String(result.data[key] ?? "");
           }
