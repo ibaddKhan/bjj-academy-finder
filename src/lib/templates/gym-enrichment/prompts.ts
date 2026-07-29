@@ -31,7 +31,10 @@ Rules:
 - Only include URLs that clearly belong to THIS ${industry.entityType} in THIS location
 - If multiple entities with similar names exist, prefer the one in the specified location
 - Do NOT include personal accounts — only official ${industry.entityLabel} accounts
-- If you cannot confirm the ${industry.entityLabel} online presence with confidence >= 50, set status to "not_found"
+- Extract Facebook and Instagram URLs even if they appear in search snippets or redirected URLs
+- A Facebook business page URL (facebook.com/GymName) counts as a valid link even without full profile data in the snippet
+- If you find at least one valid URL (website, Facebook, or Instagram), set status to "found" — do not require all links
+- If you cannot find ANY URL for this ${industry.entityLabel}, set status to "not_found"
 
 Respond with ONLY the JSON object, no markdown, no explanation.`;
 }
@@ -56,11 +59,11 @@ Extract all available information and return a JSON object:
   "website": "https://... or null",
   "email": "contact email or null",
   "phone": "phone number or null",
-  "locations": "address(es) or null",
+  "locations": "full address or city, state, country or null",
   "owners": "owner/principal name(s) comma-separated or null",
   "coaches": "staff/team member name(s) comma-separated or null",
   "industry": "${industry.label} or null",
-  "social_media": "instagram:url, facebook:url, etc. or null",
+  "social_media": "facebook:url, instagram:url (comma-separated) or null",
   "detected_software": "name of booking/management software if found, or null",
   "confidence_score": "0-100 as string",
   "reason": "brief summary of what was found and confidence level",
@@ -71,6 +74,11 @@ Extract all available information and return a JSON object:
 Rules:
 - Extract ONLY information that is explicitly present in the scraped content
 - Do NOT invent or guess contact details
+- For email: look for mailto: links, contact forms mentions, or email addresses in text
+- For phone: look for tel: links or phone number patterns
+- For social_media: format as "facebook:https://facebook.com/page, instagram:https://instagram.com/handle"
+- For owners: look for "owner", "head instructor", "founder", "professor", "head coach" mentions
+- For coaches: look for "instructor", "coach", "professor", staff page listings
 - confidence_score reflects how much confirmed data was found (0=none, 100=full profile)
 
 Respond with ONLY the JSON object.`;

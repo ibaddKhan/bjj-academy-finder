@@ -75,6 +75,15 @@ function extractTextContent(html: string, url: string): string {
   if (html.includes("clubready")) software.push("ClubReady");
   if (software.length) result += `Software: ${software.join(", ")}\n`;
 
+  // Extract addresses (look for structured data or common patterns)
+  const addressMatch = html.match(/"streetAddress"\s*:\s*"([^"]+)"/i);
+  if (addressMatch) result += `Address: ${addressMatch[1]}\n`;
+  const localityMatch = html.match(/"addressLocality"\s*:\s*"([^"]+)"/i);
+  const regionMatch = html.match(/"addressRegion"\s*:\s*"([^"]+)"/i);
+  if (localityMatch || regionMatch) {
+    result += `Location: ${[localityMatch?.[1], regionMatch?.[1]].filter(Boolean).join(", ")}\n`;
+  }
+
   // Extract body text (strip tags)
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
   if (bodyMatch) {
@@ -84,7 +93,7 @@ function extractTextContent(html: string, url: string): string {
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim()
-      .slice(0, 2000);
+      .slice(0, 3000);
     result += `\nContent:\n${bodyText}`;
   }
 

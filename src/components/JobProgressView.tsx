@@ -110,9 +110,15 @@ export function JobProgressView({
   useEffect(() => {
     if (!job.startedAt) return;
 
-    if (job.completedAt) {
-      // Job finished — show fixed total duration
-      setElapsed(new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime());
+    const active = job.status === "running" || job.status === "queued";
+
+    if (job.completedAt || !active) {
+      // Job finished or stopped — freeze the timer
+      const endTime = job.completedAt
+        ? new Date(job.completedAt).getTime()
+        : Date.now();
+      setElapsed(endTime - new Date(job.startedAt).getTime());
+      if (timerRef.current) clearInterval(timerRef.current);
       return;
     }
 
@@ -123,7 +129,7 @@ export function JobProgressView({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [job.startedAt, job.completedAt]);
+  }, [job.startedAt, job.completedAt, job.status]);
 
   function handleSSEEvent(event: SSEEvent) {
     switch (event.type) {
@@ -303,6 +309,7 @@ export function JobProgressView({
       }
       setJob((prev) => ({ ...prev, status: "paused" }));
       eventSourceRef.current?.close();
+      if (timerRef.current) clearInterval(timerRef.current);
     } catch (err) {
       setRetryError(err instanceof Error ? err.message : "Stop failed");
     } finally {

@@ -16,7 +16,7 @@ async function serperSearch(query: string, apiKey: string): Promise<SerperData> 
   const response = await fetch("https://google.serper.dev/search", {
     method: "POST",
     headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ q: query, num: 8 }),
+    body: JSON.stringify({ q: query, num: 10 }),
   });
   if (!response.ok) {
     const text = await response.text();
@@ -30,7 +30,7 @@ function formatSerperResults(data: SerperData): string {
   if (data.answerBox?.snippet || data.answerBox?.answer) {
     out += `Answer: ${data.answerBox.snippet ?? data.answerBox.answer}\n\n`;
   }
-  for (const r of (data.organic ?? []).slice(0, 8)) {
+  for (const r of (data.organic ?? []).slice(0, 10)) {
     out += `${r.title}\n${r.link}\n${r.snippet}\n\n`;
   }
   return out.trim() || "No results found.";
@@ -107,7 +107,7 @@ async function runGymEnrichment(
 
   const serpResults: string[] = [];
 
-  // Search 1: general
+  // Search 1: general (website, address, contact)
   const q1 = `"${gymName}" ${industryConfig.searchKeyword} ${location}`;
   emit("search", "call", { query: q1 });
   try {
@@ -120,8 +120,8 @@ async function runGymEnrichment(
     serpResults.push(`Search 1 error.`);
   }
 
-  // Search 2: social/directory
-  const q2 = `"${gymName}" ${industryConfig.searchKeyword} Smoothcomp team`;
+  // Search 2: social media (Facebook, Instagram)
+  const q2 = `"${gymName}" ${location} site:facebook.com OR site:instagram.com`;
   emit("search", "call", { query: q2 });
   try {
     const s2 = await serperSearch(q2, serperKey);
@@ -131,6 +131,32 @@ async function runGymEnrichment(
   } catch (err) {
     emit("search", "result", `Error: ${err instanceof Error ? err.message : String(err)}`);
     serpResults.push(`Search 2 error.`);
+  }
+
+  // Search 3: Smoothcomp / competition directory
+  const q3 = `"${gymName}" site:smoothcomp.com team`;
+  emit("search", "call", { query: q3 });
+  try {
+    const s3 = await serperSearch(q3, serperKey);
+    const t3 = formatSerperResults(s3);
+    emit("search", "result", t3);
+    serpResults.push(`Search 3 (${q3}):\n${t3}`);
+  } catch (err) {
+    emit("search", "result", `Error: ${err instanceof Error ? err.message : String(err)}`);
+    serpResults.push(`Search 3 error.`);
+  }
+
+  // Search 4: contact info, reviews, maps
+  const q4 = `"${gymName}" ${location} email phone address`;
+  emit("search", "call", { query: q4 });
+  try {
+    const s4 = await serperSearch(q4, serperKey);
+    const t4 = formatSerperResults(s4);
+    emit("search", "result", t4);
+    serpResults.push(`Search 4 (${q4}):\n${t4}`);
+  } catch (err) {
+    emit("search", "result", `Error: ${err instanceof Error ? err.message : String(err)}`);
+    serpResults.push(`Search 4 error.`);
   }
 
   const allSerpText = serpResults.join("\n\n---\n\n");
