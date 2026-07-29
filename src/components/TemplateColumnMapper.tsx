@@ -48,6 +48,7 @@ interface TemplateColumnMapperProps {
   onLaunch: (columnMap: object) => void;
   isLaunching: boolean;
   defaultValues?: EnrichmentColumnMap;
+  children?: React.ReactNode;
 }
 
 const SKIP = "__skip__";
@@ -59,6 +60,7 @@ export function TemplateColumnMapper({
   onLaunch,
   isLaunching,
   defaultValues,
+  children,
 }: TemplateColumnMapperProps) {
   const fields = TEMPLATE_FIELDS[templateSlug];
   const [sourceHeaders, setSourceHeaders] = useState<string[]>([]);
@@ -301,6 +303,8 @@ export function TemplateColumnMapper({
           ))}
         </div>
       </div>
+
+      {children}
 
       <Button
         onClick={handleLaunch}

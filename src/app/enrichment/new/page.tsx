@@ -270,140 +270,137 @@ export default function EnrichmentNewPage() {
 
         {/* Step 1: Map Columns */}
         {step === 1 && sourceSheet && (
-          <>
-            {/* Destination Sheet (optional) — shown before column mapper so it's visible */}
-            <Card className="mb-4">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={enableDestSheet}
-                      onChange={(e) => {
-                        setEnableDestSheet(e.target.checked);
-                        if (!e.target.checked) {
-                          setDestSheet(null);
-                          setDestHeaders([]);
-                          setDestOutputCols({});
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-input"
-                    />
-                    <span>Write results to a destination sheet</span>
-                  </label>
-                </CardTitle>
-                <CardDescription>
-                  Optionally append full enrichment results to a separate Google Sheet.
-                </CardDescription>
-              </CardHeader>
-              {enableDestSheet && (
-                <CardContent className="space-y-6">
-                  {!destSheet ? (
-                    <SheetConnector
-                      onConnected={(info) => setDestSheet(info)}
-                      defaultUrl={savedConfig?.destSheetUrl}
-                      defaultTabName={savedConfig?.destTabName}
-                    />
-                  ) : (
-                    <>
-                      <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
-                        <span className="text-muted-foreground">
-                          Connected: <span className="text-foreground font-medium">{destSheet.tabName}</span>
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
+          <Card>
+            <CardHeader>
+              <CardTitle>Map Columns</CardTitle>
+              <CardDescription>
+                Map source sheet columns for input and status tracking.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TemplateColumnMapper
+                templateSlug={GYM_TEMPLATE_SLUG}
+                sourceSheetId={sourceSheet.sheetId}
+                sourceTabName={sourceSheet.tabName}
+                onLaunch={handleLaunch}
+                isLaunching={isLaunching}
+                defaultValues={
+                  savedConfig?.tabName === sourceSheet.tabName
+                    ? (savedConfig.columnMap as object)
+                    : undefined
+                }
+              >
+                {/* Destination Sheet (optional) */}
+                <div className="space-y-4">
+                  <div className="border-t pt-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enableDestSheet}
+                        onChange={(e) => {
+                          setEnableDestSheet(e.target.checked);
+                          if (!e.target.checked) {
                             setDestSheet(null);
                             setDestHeaders([]);
                             setDestOutputCols({});
-                          }}
-                        >
-                          Change
-                        </Button>
-                      </div>
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-input"
+                      />
+                      <span className="text-sm font-medium">Write full results to a destination sheet</span>
+                    </label>
+                    <p className="text-xs text-muted-foreground mt-1 ml-6">
+                      Optionally append all enrichment fields to a separate Google Sheet.
+                    </p>
+                  </div>
 
-                      {destHeadersLoading ? (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Loading destination columns...
-                        </div>
-                      ) : destHeaders.length > 0 ? (
-                        <div className="space-y-4">
-                          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                            Map Output Fields to Destination Columns
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            Select which destination column each enrichment field should be written to. Skip any fields you don&apos;t need.
-                          </p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {DEST_OUTPUT_FIELDS.map((f) => (
-                              <div key={f.key} className="space-y-2">
-                                <Label>{f.label}</Label>
-                                <Select
-                                  value={destOutputCols[f.key] ?? SKIP}
-                                  onValueChange={(val) =>
-                                    setDestOutputCols((prev) => ({ ...prev, [f.key]: val }))
-                                  }
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="— skip —" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value={SKIP}>— skip —</SelectItem>
-                                    {destHeaders.map((h, i) => (
-                                      <SelectItem key={i} value={String(i)}>
-                                        {h || `Column ${i + 1}`} (col {i + 1})
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                  {enableDestSheet && (
+                    <div className="space-y-4 pl-6">
+                      {!destSheet ? (
+                        <SheetConnector
+                          onConnected={(info) => setDestSheet(info)}
+                          defaultUrl={savedConfig?.destSheetUrl}
+                          defaultTabName={savedConfig?.destTabName}
+                        />
                       ) : (
-                        <p className="text-sm text-muted-foreground">
-                          No headers found in the destination sheet. Make sure the first row has column headers.
-                        </p>
-                      )}
-                    </>
-                  )}
-                </CardContent>
-              )}
-            </Card>
+                        <>
+                          <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                            <span className="text-muted-foreground">
+                              Connected: <span className="text-foreground font-medium">{destSheet.tabName}</span>
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setDestSheet(null);
+                                setDestHeaders([]);
+                                setDestOutputCols({});
+                              }}
+                            >
+                              Change
+                            </Button>
+                          </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Map Columns</CardTitle>
-                <CardDescription>
-                  Map source sheet columns for input and status tracking.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <TemplateColumnMapper
-                  templateSlug={GYM_TEMPLATE_SLUG}
-                  sourceSheetId={sourceSheet.sheetId}
-                  sourceTabName={sourceSheet.tabName}
-                  onLaunch={handleLaunch}
-                  isLaunching={isLaunching}
-                  defaultValues={
-                    savedConfig?.tabName === sourceSheet.tabName
-                      ? (savedConfig.columnMap as object)
-                      : undefined
-                  }
-                />
-                {launchError && (
-                  <p className="mt-3 text-sm text-destructive">{launchError}</p>
-                )}
-                <div className="mt-4">
-                  <Button variant="ghost" size="sm" onClick={() => setStep(0)}>
-                    ← Back
-                  </Button>
+                          {destHeadersLoading ? (
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Loading destination columns...
+                            </div>
+                          ) : destHeaders.length > 0 ? (
+                            <div className="space-y-4">
+                              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                                Map Output Fields to Destination Columns
+                              </h3>
+                              <p className="text-sm text-muted-foreground">
+                                Select which destination column each enrichment field should be written to. Skip any fields you don&apos;t need.
+                              </p>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {DEST_OUTPUT_FIELDS.map((f) => (
+                                  <div key={f.key} className="space-y-2">
+                                    <Label>{f.label}</Label>
+                                    <Select
+                                      value={destOutputCols[f.key] ?? SKIP}
+                                      onValueChange={(val) =>
+                                        setDestOutputCols((prev) => ({ ...prev, [f.key]: val }))
+                                      }
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="— skip —" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value={SKIP}>— skip —</SelectItem>
+                                        {destHeaders.map((h, i) => (
+                                          <SelectItem key={i} value={String(i)}>
+                                            {h || `Column ${i + 1}`} (col {i + 1})
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              No headers found in the destination sheet. Make sure the first row has column headers.
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          </>
+              </TemplateColumnMapper>
+              {launchError && (
+                <p className="mt-3 text-sm text-destructive">{launchError}</p>
+              )}
+              <div className="mt-4">
+                <Button variant="ghost" size="sm" onClick={() => setStep(0)}>
+                  ← Back
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </main>
     </div>
